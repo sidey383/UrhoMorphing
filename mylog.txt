@@ -1,19 +1,15 @@
-[Sun Apr 20 23:57:27 2025] INFO: Opened log file mylog.txt
-[Sun Apr 20 23:57:27 2025] INFO: Created 7 worker threads
-[Sun Apr 20 23:57:27 2025] INFO: Added resource path D:/study/4_course/practice_8_term/materials/UrhoProject/build/Release/Data/
-[Sun Apr 20 23:57:27 2025] INFO: Added resource path D:/study/4_course/practice_8_term/materials/UrhoProject/build/Release/CoreData/
-[Sun Apr 20 23:57:27 2025] INFO: Adapter used NVIDIA GeForce RTX 3050
-[Sun Apr 20 23:57:27 2025] INFO: Set screen mode 1280x720 rate 165 Hz windowed monitor 0
-[Sun Apr 20 23:57:27 2025] INFO: Initialized input
-[Sun Apr 20 23:57:27 2025] INFO: Initialized user interface
-[Sun Apr 20 23:57:27 2025] INFO: Initialized renderer
-[Sun Apr 20 23:57:27 2025] INFO: Set audio mode 44100 Hz stereo interpolated
-[Sun Apr 20 23:57:27 2025] INFO: Initialized engine
-[Sun Apr 20 23:57:27 2025] INFO: Logging system is active
+[Mon Apr 21 00:47:08 2025] INFO: Opened log file mylog.txt
+[Mon Apr 21 00:47:08 2025] INFO: Created 7 worker threads
+[Mon Apr 21 00:47:08 2025] INFO: Added resource path D:/study/4_course/practice_8_term/materials/UrhoProject/build/Release/Data/
+[Mon Apr 21 00:47:08 2025] INFO: Added resource path D:/study/4_course/practice_8_term/materials/UrhoProject/build/Release/CoreData/
+[Mon Apr 21 00:47:08 2025] INFO: Adapter used NVIDIA GeForce RTX 3050
+[Mon Apr 21 00:47:08 2025] INFO: Set screen mode 1280x720 rate 165 Hz windowed monitor 0
+[Mon Apr 21 00:47:08 2025] INFO: Initialized input
+[Mon Apr 21 00:47:08 2025] INFO: Initialized user interface
+[Mon Apr 21 00:47:08 2025] INFO: Initialized renderer
+[Mon Apr 21 00:47:08 2025] INFO: Set audio mode 44100 Hz stereo interpolated
+[Mon Apr 21 00:47:08 2025] INFO: Initialized engine
+[Mon Apr 21 00:47:08 2025] INFO: Logging system is active
 
-[Sun Apr 20 23:57:27 2025] INFO: FBX file Imported
-
-[Sun Apr 20 23:57:27 2025] INFO: Load FBX root node
-
-[Sun Apr 20 23:57:27 2025] INFO: Find Mesh in FBX file
+[Mon Apr 21 00:47:08 2025] INFO: FBX file Imported
 

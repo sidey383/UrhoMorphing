@@ -46,7 +46,10 @@ endif()
 
 include_directories(${FBX_INCLUDE_DIR})
 
-add_executable(MyFBXViewer WIN32 main.cpp)
+file(GLOB_RECURSE SRC_FILES src/*.cpp src/*.h)
+
+add_executable(MyFBXViewer WIN32 ${SRC_FILES})
+
 target_link_libraries(MyFBXViewer
 	Urho3D
 	${FBX_LIB}
