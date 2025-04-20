@@ -21,6 +21,7 @@ private:
     void HandleKeyDown(Urho3D::StringHash eventType, Urho3D::VariantMap& eventData);
     void SetupLighting();
     void CreateScene();
+    void RegisterAllComponents();
 
     Urho3D::SharedPtr<Urho3D::Scene> scene_;
     Urho3D::SharedPtr<Urho3D::Node> cameraNode_;

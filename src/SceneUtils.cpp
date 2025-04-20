@@ -1,5 +1,7 @@
 #include "SceneUtils.h"
 
+#include "MorphGeometry.h"
+
 #include <Urho3D/IO/Log.h>
 #include <Urho3D/Scene/Node.h>
 #include <Urho3D/Graphics/CustomGeometry.h>
@@ -17,18 +19,20 @@ void traverse(Urho3D::Log* log, Node* node, int depth)
     log->Write(LOG_INFO, info);
 
     // Проверка на наличие компонентов CustomGeometry или StaticModel
-    if (auto* custom = node->GetComponent<CustomGeometry>())
-    {
-        log->Write(LOG_INFO, indent + "  CustomGeometry " + custom->GetTypeName() + " attached.");
-    }
+    do {
+        for (Component* component : node->GetComponents()) {
+            if (component->GetTypeName() == String("StaticModel")) {
+                StaticModel* model = static_cast<StaticModel*>(component);
+                auto* res = model->GetModel();
+                String meshInfo = indent + "  StaticModel attached: ";
+                meshInfo += res ? res->GetName() : "null model";
+                log->Write(LOG_INFO, meshInfo);
+            } else {
+                log->Write(LOG_INFO, indent + "  Component " + component->GetTypeName() + " attached.");
+            }
+        }
+    } while (false);
 
-    if (auto* model = node->GetComponent<StaticModel>())
-    {
-        auto* res = model->GetModel();
-        String meshInfo = indent + "  StaticModel attached: ";
-        meshInfo += res ? res->GetName() : "null model";
-        log->Write(LOG_INFO, meshInfo);
-    }
 
     // Рекурсивно обходим детей
     for (Node* child : node->GetChildren())

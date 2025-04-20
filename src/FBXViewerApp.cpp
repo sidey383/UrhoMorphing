@@ -8,6 +8,7 @@
 #include "FBXViewerApp.h"
 #include "FBXLoader.h"
 #include "SceneUtils.h"
+#include "MorphGeometry.h"
 #include <Urho3D/Input/Input.h>
 #include <Urho3D/Input/Controls.h>
 #include <Urho3D/Engine/Engine.h>
@@ -38,6 +39,7 @@ void FBXViewerApp::Setup() {
     engineParameters_["WindowWidth"] = 1280;
     engineParameters_["WindowHeight"] = 720;
     engineParameters_["LogName"] = "run.log";
+    RegisterAllComponents();
 }
 
 void FBXViewerApp::Start() {
@@ -130,6 +132,11 @@ void FBXViewerApp::SetupLighting()
     zone->SetFogStart(100.0f);
     zone->SetFogEnd(300.0f);
 
+}
+
+void FBXViewerApp::RegisterAllComponents()
+{
+    context_->RegisterFactory<MorphGeometry>();
 }
 
 URHO3D_DEFINE_APPLICATION_MAIN(FBXViewerApp)
