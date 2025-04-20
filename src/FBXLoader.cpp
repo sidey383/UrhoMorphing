@@ -72,7 +72,11 @@ SharedPtr<Node> LoadFBXToNode(Context* context, const String& fbxPath)
     for (int i = 0; i < fbxMesh->GetPolygonCount(); ++i)
     {
         int polySize = fbxMesh->GetPolygonSize(i);
-        if (polySize != 3) continue; // предполагаем триангуляцию
+        if (polySize != 3) 
+        {
+            context->GetSubsystem<Log>()->Write(LOG_ERROR, "Can't process not triangulate ploygon");
+            return SharedPtr<Node>();
+        }
 
         for (int j = 0; j < polySize; ++j)
         {

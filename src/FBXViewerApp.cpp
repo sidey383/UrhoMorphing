@@ -6,7 +6,6 @@
 #include <d3dcompiler.h>
 
 #include "FBXViewerApp.h"
-#include "SceneHandler.h"
 #include "FBXLoader.h"
 #include <Urho3D/Input/Input.h>
 #include <Urho3D/Input/Controls.h>
@@ -43,8 +42,8 @@ void FBXViewerApp::Setup() {
 void FBXViewerApp::Start() {
     GetSubsystem<Log>()->Write(LOG_INFO, "Logging system is active\n");
 
-    scene_ = CreateScene(context_, cameraNode_, yaw_, pitch_);
-    SetupLighting(scene_);
+    CreateScene();
+    SetupLighting();
 
     Renderer* renderer = GetSubsystem<Renderer>();
     renderer->SetViewport(0, new Viewport(context_, scene_, cameraNode_->GetComponent<Camera>()));
@@ -96,6 +95,38 @@ void FBXViewerApp::HandleKeyDown(StringHash, VariantMap& eventData) {
     using namespace KeyDown;
     if (eventData[P_KEY].GetI32() == KEY_ESCAPE)
         engine_->Exit();
+}
+
+void FBXViewerApp::CreateScene()
+{
+    auto* log = GetSubsystem<Log>();
+    scene_ = SharedPtr<Scene>(new Scene(context_));
+    scene_->CreateComponent<Octree>();
+
+    // Камера
+    cameraNode_ = scene_->CreateChild("Camera");
+    cameraNode_->CreateComponent<Camera>();
+    cameraNode_->SetDirection(Vector3::BACK);
+    cameraNode_->SetPosition(Vector3(0, 1, 10));
+    yaw_ = cameraNode_->GetRotation().YawAngle();
+    pitch_ = cameraNode_->GetRotation().PitchAngle();
+}
+
+void FBXViewerApp::SetupLighting()
+{
+    Node* lightNode = scene_->CreateChild("Light");
+    lightNode->SetDirection(Vector3::BACK); // или в сторону камеры
+    lightNode->SetPosition(Vector3(0, -20, 20));
+    Light* light = lightNode->CreateComponent<Light>();
+    light->SetLightType(LIGHT_DIRECTIONAL);
+
+    SharedPtr<Zone> zone(scene_->CreateComponent<Zone>());
+    zone->SetBoundingBox(BoundingBox(-1000.0f, 1000.0f));
+    zone->SetAmbientColor(Color(0.4f, 0.4f, 0.4f));
+    zone->SetFogColor(Color(0.2f, 0.2f, 0.2f));
+    zone->SetFogStart(100.0f);
+    zone->SetFogEnd(300.0f);
+
 }
 
 URHO3D_DEFINE_APPLICATION_MAIN(FBXViewerApp)
