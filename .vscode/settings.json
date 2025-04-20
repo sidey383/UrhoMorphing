@@ -1,6 +1,7 @@
 {
   "cmake.generator": "Visual Studio 17 2022",
-  "chcp": "65001",
+  "terminal.integrated.defaultEncoding": "utf8",
+  "terminal.integrated.setLocaleVariables": true,
   "cmake.configureSettings": {
     "CMAKE_BUILD_TYPE": "Release"
   },

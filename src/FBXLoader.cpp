@@ -12,110 +12,203 @@
 
 using namespace Urho3D;
 
-SharedPtr<Node> LoadFBXToNode(Context* context, const String& fbxPath)
+inline Vector3 ToVector3(const FbxVector4& v)
 {
-    FbxManager* manager = FbxManager::Create();
-    auto* log = context->GetSubsystem<Log>();
-    if (!manager)
+    return Vector3(
+        static_cast<float>(v[0]),
+        static_cast<float>(v[1]),
+        static_cast<float>(v[2])
+    );
+}
+
+inline void applyNormal(Log* log, const FbxMesh* fbxMesh, bool& brokeNormal, Vector3& n, const int i, const char* nodeName) {
+    FbxVector4 fn;
+    if (fbxMesh->GetPolygonVertexNormal(i, 0, fn))
     {
-        log->Write(LOG_ERROR, "Failed to create FBX Manager");
-        return SharedPtr<Node>();
+        n = Vector3((float)fn[0], (float)fn[1], (float)fn[2]);
+    } else {
+        if (!brokeNormal)
+        {
+            log->Write(LOG_WARNING, "Can't found some normal for " + String(nodeName));
+            brokeNormal = true;
+        }
+    }
+}
+
+bool LoadFBXRecursive(Context* context, Node* parent, FbxNode* fbxNode)
+{
+    auto* log = context->GetSubsystem<Log>();
+    Node* thisNode = parent->CreateChild(fbxNode->GetName());
+    thisNode->SetPosition(Vector3::ZERO);
+    const char* nodeName = fbxNode->GetName();
+    thisNode->SetName(nodeName && nodeName[0] ? nodeName : "UnnamedNode");
+
+    FbxMesh* fbxMesh = fbxNode->GetMesh();
+    if (fbxMesh)
+    {
+        CustomGeometry* geom = thisNode->CreateComponent<CustomGeometry>();
+        geom->SetNumGeometries(1);
+        geom->BeginGeometry(0, TRIANGLE_LIST);
+
+        int polygonCount = fbxMesh->GetPolygonCount();
+        FbxVector4* controlPoints = fbxMesh->GetControlPoints();
+        
+        bool brokeNormal = false;
+        for (int i = 0; i < polygonCount; ++i)
+        {
+            int polySize = fbxMesh->GetPolygonSize(i);
+            if (polySize != 3) 
+            {
+                log->Write(LOG_ERROR, "Can't process not triangulate ploygon");
+                return false;
+            }
+            for (int j = 1; j < polySize - 1; ++j)
+            {
+                // Мы обходим один полигон, так что j = 1 
+                // Получается 0, 1, 2 - три вершины
+                // Если полгино задается четрыехугольников все продолжит работать корректно, мы проведем триангуляцию
+                int i0 = fbxMesh->GetPolygonVertex(i, 0);
+                int i1 = fbxMesh->GetPolygonVertex(i, j);
+                int i2 = fbxMesh->GetPolygonVertex(i, j + 1);
+            
+                Vector3 v0 = ToVector3(controlPoints[i0]);
+                Vector3 v1 = ToVector3(controlPoints[i1]);
+                Vector3 v2 = ToVector3(controlPoints[i2]);
+            
+                Vector3 n0 = Vector3::UP, n1 = Vector3::UP, n2 = Vector3::UP;
+                applyNormal(log, fbxMesh, brokeNormal, n0, i, nodeName);
+                applyNormal(log, fbxMesh, brokeNormal, n1, i, nodeName);
+                applyNormal(log, fbxMesh, brokeNormal, n2, i, nodeName);
+            
+                Vector2 uv0 = Vector2::ZERO, uv1 = Vector2::ZERO, uv2 = Vector2::ZERO;
+                FbxStringList uvSets;
+                fbxMesh->GetUVSetNames(uvSets);
+                if (uvSets.GetCount() > 0)
+                {
+                    FbxVector2 uv;
+                    bool unmapped;
+                    fbxMesh->GetPolygonVertexUV(i, 0, uvSets[0], uv, unmapped);
+                    uv0 = Vector2((float)uv[0], 1.0f - (float)uv[1]);
+                    fbxMesh->GetPolygonVertexUV(i, j, uvSets[0], uv, unmapped);
+                    uv1 = Vector2((float)uv[0], 1.0f - (float)uv[1]);
+                    fbxMesh->GetPolygonVertexUV(i, j + 1, uvSets[0], uv, unmapped);
+                    uv2 = Vector2((float)uv[0], 1.0f - (float)uv[1]);
+                }
+            
+                geom->DefineVertex(v0);
+                geom->DefineNormal(n0);
+                geom->DefineTexCoord(uv0);
+            
+                geom->DefineVertex(v1);
+                geom->DefineNormal(n1);
+                geom->DefineTexCoord(uv1);
+            
+                geom->DefineVertex(v2);
+                geom->DefineNormal(n2);
+                geom->DefineTexCoord(uv2);
+            
+                geom->DefineTangent(Vector4(1, 0, 0, 1));
+            }
+        }
+        FbxGeometry* geometry = dynamic_cast<FbxGeometry*>(fbxMesh);
+        if (geometry) {
+            int blendShapeCount = geometry->GetDeformerCount(FbxDeformer::eBlendShape);
+            
+            for (int i = 0; i < blendShapeCount; ++i)
+            {
+                FbxBlendShape* blendShape = (FbxBlendShape*)geometry->GetDeformer(i, FbxDeformer::eBlendShape);
+            
+                String shapeInfo = "BlendShape: ";
+                shapeInfo += blendShape->GetName();
+                log->Write(LOG_INFO, shapeInfo);
+            
+                for (int j = 0; j < blendShape->GetBlendShapeChannelCount(); ++j)
+                {
+                    FbxBlendShapeChannel* channel = blendShape->GetBlendShapeChannel(j);
+                    if (!channel) continue;
+            
+                    String channelInfo = "  Channel: ";
+                    channelInfo += channel->GetName();
+                    log->Write(LOG_INFO, channelInfo);
+            
+                    for (int k = 0; k < channel->GetTargetShapeCount(); ++k)
+                    {
+                        FbxShape* shape = channel->GetTargetShape(k);
+                        String targetInfo = "    Target Shape: ";
+                        targetInfo += shape->GetName();
+                        targetInfo += " (Vertices: ";
+                        targetInfo += String(shape->GetControlPointsCount());
+                        targetInfo += ")";
+                        log->Write(LOG_INFO, targetInfo);
+            
+                        // Здесь можно получить вершины shape->GetControlPoints()
+                    }
+                }
+            }
+        }
+
+        auto* cache = context->GetSubsystem<ResourceCache>();
+        auto* material = cache->GetResource<Material>("Materials/Stone.xml");
+        if (material) 
+        {
+            geom->SetMaterial(material);
+        } else 
+        {
+            log->Write(LOG_ERROR, "Failed to load material!");
+        }
+        geom->Commit();
+        if (!geom->GetNumVertices(0)) log->Write(LOG_WARNING, "CustomGeometry has 0 vertices!");
     }
 
-    FbxIOSettings* ioSettings = FbxIOSettings::Create(manager, IOSROOT);
-    manager->SetIOSettings(ioSettings);
+    // Рекурсивно обходим дочерние узлы
+    for (int i = 0; i < fbxNode->GetChildCount(); ++i)
+    {
+        if (!LoadFBXRecursive(context, thisNode, fbxNode->GetChild(i)))
+        {
+            return false;
+        }
+    }
+    return true;
+}
+
+
+SharedPtr<Node> LoadFBXToNode(Context* context, const String& fbxPath)
+{
+    Log* log = context->GetSubsystem<Log>();
+    FbxManager* manager = FbxManager::Create();
+    FbxIOSettings* ios = FbxIOSettings::Create(manager, IOSROOT);
+    manager->SetIOSettings(ios);
+
+    FbxScene* scene = FbxScene::Create(manager, "scene");
 
     String path = context->GetSubsystem<FileSystem>()->GetProgramDir() + fbxPath;
     FbxImporter* importer = FbxImporter::Create(manager, "");
     if (!importer->Initialize(path.CString(), -1, manager->GetIOSettings()))
     {
-        String errorMessage = String("FBX Import Error: ") + importer->GetStatus().GetErrorString();
-        log->Write(LOG_ERROR, errorMessage);
+        log->Write(LOG_ERROR, String("FBX Import Error: ") + importer->GetStatus().GetErrorString());
         return SharedPtr<Node>();
-    } else {
-        log->Write(LOG_INFO, "FBX file Imported\n");
     }
 
-    FbxScene* fbxScene = FbxScene::Create(manager, "scene");
-    importer->Import(fbxScene);
+    importer->Import(scene);
     importer->Destroy();
 
-    FbxNode* root = fbxScene->GetRootNode();
-    if (!root)
-    {
-        context->GetSubsystem<Log>()->Write(LOG_ERROR, "No root node in FBX scene");
-        return SharedPtr<Node>();
-    }
+    FbxGeometryConverter converter(manager);
+    converter.Triangulate(scene, true);
 
-    // Ищем первый меш
-    FbxMesh* fbxMesh = nullptr;
-    for (int i = 0; i < root->GetChildCount(); ++i)
-    {
-        FbxNode* child = root->GetChild(i);
-        fbxMesh = child->GetMesh();
-        if (fbxMesh) break;
-    }
+    SharedPtr<Node> rootNode(new Node(context));
 
-    if (!fbxMesh)
+    FbxNode* fbxRoot = scene->GetRootNode();
+    if (fbxRoot)
     {
-        context->GetSubsystem<Log>()->Write(LOG_ERROR, "No mesh found in FBX file");
-        return SharedPtr<Node>();
-    }
-
-    FbxVector4* controlPoints = fbxMesh->GetControlPoints();
-    SharedPtr<Node> node(new Node(context));
-    CustomGeometry* geom = node->CreateComponent<CustomGeometry>();
-    geom->SetNumGeometries(1);
-    geom->SetDynamic(false);
-    geom->BeginGeometry(0, TRIANGLE_LIST);
-
-    for (int i = 0; i < fbxMesh->GetPolygonCount(); ++i)
-    {
-        int polySize = fbxMesh->GetPolygonSize(i);
-        if (polySize != 3) 
+        if (!LoadFBXRecursive(context, rootNode, fbxRoot))
         {
-            context->GetSubsystem<Log>()->Write(LOG_ERROR, "Can't process not triangulate ploygon");
             return SharedPtr<Node>();
         }
-
-        for (int j = 0; j < polySize; ++j)
-        {
-            int ctrlPointIndex = fbxMesh->GetPolygonVertex(i, j);
-            FbxVector4 pos = controlPoints[ctrlPointIndex];
-            Vector3 position((float)pos[0], (float)pos[1], (float)pos[2]);
-
-            // Нормаль
-            Vector3 normal = Vector3::UP;
-            FbxVector4 fbxNormal;
-            if (fbxMesh->GetPolygonVertexNormal(i, j, fbxNormal))
-                normal = Vector3((float)fbxNormal[0], (float)fbxNormal[1], (float)fbxNormal[2]);
-
-            // UV
-            Vector2 uv = Vector2::ZERO;
-            FbxStringList uvSetNames;
-            fbxMesh->GetUVSetNames(uvSetNames);
-            if (uvSetNames.GetCount() > 0)
-            {
-                FbxVector2 fbxUV;
-                bool unmapped;
-                if (fbxMesh->GetPolygonVertexUV(i, j, uvSetNames[0], fbxUV, unmapped))
-                    uv = Vector2((float)fbxUV[0], 1.0f - (float)fbxUV[1]);
-            }
-
-            geom->DefineVertex(position);
-            geom->DefineNormal(normal);
-            geom->DefineTexCoord(uv);
-            geom->DefineTangent(Vector4(1.0f, 0.0f, 0.0f, 1.0f));
-        }
     }
 
-    geom->Commit();
+    scene->Destroy();
+    manager->Destroy();
 
-    // Назначим простой материал
-    auto* cache = context->GetSubsystem<ResourceCache>();
-    auto* material = cache->GetResource<Material>("Materials/Stone.xml");
-    if (material)
-        geom->SetMaterial(material);
-
-    return node;
+    return rootNode;
 }
+

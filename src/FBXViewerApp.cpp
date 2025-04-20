@@ -7,6 +7,7 @@
 
 #include "FBXViewerApp.h"
 #include "FBXLoader.h"
+#include "SceneUtils.h"
 #include <Urho3D/Input/Input.h>
 #include <Urho3D/Input/Controls.h>
 #include <Urho3D/Engine/Engine.h>
@@ -36,7 +37,7 @@ void FBXViewerApp::Setup() {
     engineParameters_["FullScreen"] = false;
     engineParameters_["WindowWidth"] = 1280;
     engineParameters_["WindowHeight"] = 720;
-    engineParameters_["LogName"] = "mylog.txt";
+    engineParameters_["LogName"] = "run.log";
 }
 
 void FBXViewerApp::Start() {
@@ -45,15 +46,11 @@ void FBXViewerApp::Start() {
     CreateScene();
     SetupLighting();
 
+    LogSceneContents(GetSubsystem<Log>(), scene_);
+
     Renderer* renderer = GetSubsystem<Renderer>();
     renderer->SetViewport(0, new Viewport(context_, scene_, cameraNode_->GetComponent<Camera>()));
     renderer->SetDrawShadows(true);
-
-    SharedPtr<Node> fbxNode = LoadFBXToNode(context_, "FBXData/model.fbx");
-    if (fbxNode)
-        scene_->CreateChild("ImportedFBX")->AddChild(fbxNode);
-    else
-        GetSubsystem<Log>()->Write(LOG_ERROR, "Can't load model");
 
     Input* input = GetSubsystem<Input>();
     input->SetMouseVisible(false);
@@ -110,13 +107,19 @@ void FBXViewerApp::CreateScene()
     cameraNode_->SetPosition(Vector3(0, 1, 10));
     yaw_ = cameraNode_->GetRotation().YawAngle();
     pitch_ = cameraNode_->GetRotation().PitchAngle();
+
+    SharedPtr<Node> fbxNode = LoadFBXToNode(context_, "FBXData/model.fbx");
+    if (fbxNode)
+        scene_->CreateChild("ImportedFBX")->AddChild(fbxNode);
+    else
+        GetSubsystem<Log>()->Write(LOG_ERROR, "Can't load model");    
 }
 
 void FBXViewerApp::SetupLighting()
 {
     Node* lightNode = scene_->CreateChild("Light");
-    lightNode->SetDirection(Vector3::BACK); // или в сторону камеры
-    lightNode->SetPosition(Vector3(0, -20, 20));
+    lightNode->SetDirection(Vector3::BACK);
+    lightNode->SetPosition(Vector3(0, 20, 20));
     Light* light = lightNode->CreateComponent<Light>();
     light->SetLightType(LIGHT_DIRECTIONAL);
 
