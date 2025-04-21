@@ -93,57 +93,14 @@ void MorphGeometry::Commit()
         boundingBox_.Merge(vertex.position_);
 }
 
-// void MorphGeometry::SetGeometryData()
-// {
-//     Vector<VertexElement> elements;
-//     elements.Push(VertexElement(TYPE_VECTOR3, SEM_POSITION));
-//     elements.Push(VertexElement(TYPE_VECTOR3, SEM_NORMAL));
-//     elements.Push(VertexElement(TYPE_VECTOR2, SEM_TEXCOORD));
-//     elements.Push(VertexElement(TYPE_VECTOR4, SEM_TANGENT));
-//     elements.Push(VertexElement(TYPE_VECTOR3, SEM_BLENDWEIGHTS)); // Используем SEM_BLENDWEIGHTS для morphDelta
-
-//     vertexBuffer_->SetShadowed(true);
-//     vertexBuffer_->SetSize(vertices_.Size(), elements);
-
-//     // Подготовка данных вершин
-//     Vector<float> vertexData;
-//     vertexData.Reserve(vertices_.Size() * 15); // 3+3+2+4+3 = 15
-
-//     for (const auto& v : vertices_)
-//     {
-//         vertexData.Push(v.position_.x_);
-//         vertexData.Push(v.position_.y_);
-//         vertexData.Push(v.position_.z_);
-
-//         vertexData.Push(v.normal_.x_);
-//         vertexData.Push(v.normal_.y_);
-//         vertexData.Push(v.normal_.z_);
-
-//         vertexData.Push(v.texCoord_.x_);
-//         vertexData.Push(v.texCoord_.y_);
-
-//         vertexData.Push(v.tangent_.x_);
-//         vertexData.Push(v.tangent_.y_);
-//         vertexData.Push(v.tangent_.z_);
-//         vertexData.Push(v.tangent_.w_);
-
-//         vertexData.Push(v.morphDelta_.x_);
-//         vertexData.Push(v.morphDelta_.y_);
-//         vertexData.Push(v.morphDelta_.z_);
-//     }
-
-//     vertexBuffer_->SetData(vertexData.Buffer());
-
-//     indexBuffer_->SetShadowed(true);
-//     indexBuffer_->SetSize(indices_.Size(), false);
-//     indexBuffer_->SetData(indices_.Buffer());
-// }
-
 void MorphGeometry::UpdateBatches(const FrameInfo& frame)
 {
+    Log* log = context_->GetSubsystem<Log>();
     // Обновление параметров шейдера
-    if (material_)
-        material_->SetShaderParameter("MorphWeight", morphWeight_);
+    if (batches_[0].material_) {
+        batches_[0].material_->SetShaderParameter("uMorphWeight", morphWeight_);
+    }
+
 
     Drawable::UpdateBatches(frame);
 }

@@ -39,12 +39,12 @@ void FBXViewerApp::Setup() {
     engineParameters_["WindowWidth"] = 1280;
     engineParameters_["WindowHeight"] = 720;
     engineParameters_["LogName"] = "run.log";
+    engineParameters_["LogLevel"] = LOG_DEBUG;
     RegisterAllComponents();
 }
 
-void FBXViewerApp::Start() {
-    GetSubsystem<Log>()->Write(LOG_INFO, "Logging system is active\n");
-
+void FBXViewerApp::Start() 
+{
     CreateScene();
     SetupLighting();
 

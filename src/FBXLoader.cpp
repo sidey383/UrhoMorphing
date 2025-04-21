@@ -3,12 +3,11 @@
 #include <Urho3D/IO/FileSystem.h>
 #include <Urho3D/Graphics/CustomGeometry.h>
 #include <Urho3D/Graphics/Material.h>
+#include <Urho3D/Graphics/Technique.h>
 #include <Urho3D/Resource/ResourceCache.h>
 #include <Urho3D/Engine/Engine.h>
 #include <Urho3D/IO/Log.h>
 #include <Urho3D/Core/Context.h>
-#include <Urho3D/Resource/ResourceCache.h>
-#include <Urho3D/Graphics/Material.h>
 #include <fbxsdk.h>
 
 using namespace Urho3D;
@@ -90,7 +89,7 @@ SharedPtr<Node> BuildUrhoGeometryMorphFromFBXMesh(Context* context, FbxMesh* fbx
             vertex.normal_ = normal;
             vertex.texCoord_ = uv;
             vertex.tangent_ = Vector4(1.0f, 0.0f, 0.0f, 1.0f);
-            //vertex.morphDelta_ = morphDeltas[ctrlPointIndex];
+            vertex.morphDelta_ = morphDeltas[ctrlPointIndex];
 
             vertices.Push(vertex);
             indices.Push(vertices.Size() - 1);
@@ -105,9 +104,13 @@ SharedPtr<Node> BuildUrhoGeometryMorphFromFBXMesh(Context* context, FbxMesh* fbx
     morphGeometry->SetIndices(indices);
 
     auto* cache = context->GetSubsystem<ResourceCache>();
-    auto* material = cache->GetResource<Material>("Materials/Stone.xml");
-    if (material)
+    auto* material = cache->GetResource<Material>("Materials/Morph.xml");
+    if (material) {
+        Technique* tech = material->GetTechnique(0);
+        Pass* pass = tech->GetPass(0);
+        pass->SetVertexShaderDefines("MORPH_ENABLED");
         morphGeometry->SetMaterial(material);
+    }
 
     morphGeometry->SetMorphWeight(0.0f); // Начальный вес морфинга
     morphGeometry->Commit();

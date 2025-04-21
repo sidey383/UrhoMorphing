@@ -1,0 +1,3 @@
+<technique>
+    <pass name="base" vs="Morph" ps="LitSolid" />
+</technique>
