@@ -1,7 +1,7 @@
 <material>
     <technique name="Techniques/Morph.xml" quality="2" />
     <shader vsdefines="MORPH_ENABLED" />
-    <texture unit="diffuse" name="Textures/StoneDiffuse.dds" />
+    <texture unit="diffuse" name="Textures/White.png" />
     <texture unit="normal" name="Textures/StoneNormal.dds" />
     <shader psdefines="PACKEDNORMAL" />
     <parameter name="MatSpecColor" value="0.3 0.3 0.3 16" />    

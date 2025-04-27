@@ -421,16 +421,22 @@ void FBXViewerApp::HandleDropDownListChanged(StringHash eventType, VariantMap& e
 
 void FBXViewerApp::SetupLighting()
 {
-    Node* lightNode = scene_->CreateChild("Light");
-    lightNode->SetDirection(Vector3::BACK);
-    lightNode->SetPosition(Vector3(0, 20, 20));
-    Light* light = lightNode->CreateComponent<Light>();
-    light->SetLightType(LIGHT_DIRECTIONAL);
+    Node* lightNode1 = scene_->CreateChild("Light");
+    lightNode1->SetDirection(Vector3::BACK);
+    lightNode1->SetPosition(Vector3(0, 40, 20));
+    Light* light1 = lightNode1->CreateComponent<Light>();
+    light1->SetLightType(LIGHT_DIRECTIONAL);
+
+    Node* lightNode2 = scene_->CreateChild("Light");
+    lightNode2->SetDirection(Vector3::FORWARD);
+    lightNode2->SetPosition(Vector3(0, -40, 20));
+    Light* light2 = lightNode2->CreateComponent<Light>();
+    light2->SetLightType(LIGHT_DIRECTIONAL);
 
     SharedPtr<Zone> zone(scene_->CreateComponent<Zone>());
     zone->SetBoundingBox(BoundingBox(-1000.0f, 1000.0f));
-    zone->SetAmbientColor(Color(0.4f, 0.4f, 0.4f));
-    zone->SetFogColor(Color(0.2f, 0.2f, 0.2f));
+    zone->SetAmbientColor(Color(0.5f, 0.5f, 0.5f));
+    zone->SetFogColor(Color(0.05f, 0.05f, 0.05f));
     zone->SetFogStart(1000.0f);
     zone->SetFogEnd(3000.0f);
 
