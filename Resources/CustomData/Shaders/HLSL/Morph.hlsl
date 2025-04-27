@@ -12,6 +12,29 @@ Texture1D tMorphWeigthMap : register(t6);
 SamplerState sMorphWeigthMap : register(s6);
 // SamplerState sMorphTextureMap : register(s7);
 float cMorphWeight;
+float3 Slerp(float3 a, float3 b, float t)
+{
+    float cosTheta = dot(normalize(a), normalize(b));
+    cosTheta = clamp(cosTheta, -1.0, 1.0); // Предотвращение ошибок из-за числовых погрешностей
+    float theta = acos(cosTheta);
+    float sinTheta = sin(theta);
+
+    // Если угол очень мал, используем линейную интерполяцию
+    if (sinTheta < 0.001)
+    {
+        return lerp(a, b, t);
+    }
+
+    float weightA = sin((1.0 - t) * theta) / sinTheta;
+    float weightB = sin(t * theta) / sinTheta;
+
+    return weightA * a + weightB * b;
+}
+
+float3 SlerpMoved(float3 move, float3 a, float3 b, float t)
+{
+    return Slerp(a - move, b - move, t) + move;
+}
 #endif
 
 void VS(float4 iPos : POSITION,
@@ -86,7 +109,7 @@ void VS(float4 iPos : POSITION,
     float3 modelPos = iPos.xyz;
 
     #ifdef MORPH_ENABLED
-        modelPos += aMorphDelta * cMorphWeight;
+        modelPos = SlerpMoved(float3(0.0, 98.0, -31.0), modelPos , modelPos + aMorphDelta, cMorphWeight);
     #endif
     float4x3 modelMatrix = iModelMatrix;
     float3 worldPos = mul(modelMatrix, modelPos);
