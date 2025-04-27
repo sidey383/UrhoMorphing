@@ -9,7 +9,6 @@
 #include <Urho3D/IO/Log.h>
 #include <Urho3D/Core/Context.h>
 #include <fbxsdk.h>
-#include <Urho3D/Scene/ValueAnimation.h>
 #include <Urho3D/Container/Vector.h>
 
 using namespace Urho3D;
@@ -50,7 +49,7 @@ ControlPointsMorph LoadPointsMorph(Context* context, FbxBlendShapeChannel* chann
     int* indexes = shape->GetControlPointIndices();
     int indexesNum = shape->GetControlPointIndicesCount();
     FbxVector4* shapePoints = shape->GetControlPoints();
-    log->Write(LOG_DEBUG, String("Start loading morp") + String(channel->GetName()) + String(" with numVertex=") + String(numVertices) + String(" and num indexes=") + String(indexesNum));
+    log->Write(LOG_DEBUG, String("Start loading morp \"") + String(channel->GetName()) + String("\" with numVertex=") + String(numVertices) + String(" and num indexes=") + String(indexesNum));
     for (int i = 0; i < numVertices && (i < indexesNum || indexesNum == 0); ++i)
     {
         i32 index;
@@ -174,26 +173,18 @@ SharedPtr<Node> BuildUrhoGeometryMorphFromFBXMeshNew(Context* context, FbxMesh* 
 
     ControlPoints controlPoints = LoadControlPointsWithMorphs(context, fbxMesh);
     auto* morphGeometry = node->CreateComponent<MorphGeometry>();
+    node->SetName(fbxMesh->GetName());
     LoadMorphGeometry(context, controlPoints, fbxMesh, morphGeometry);
-    morphGeometry->SetActiveMorpher(String("Face.M_F00_000_00_Fcl_ALL_Joy"));
 
     auto* cache = context->GetSubsystem<ResourceCache>();
     auto* material = cache->GetResource<Material>("Materials/Morph.xml");
     if (material) {
-        SharedPtr<ValueAnimation> specColorAnimation(new ValueAnimation(context));
-        specColorAnimation->SetKeyFrame(0.0f, Color(0.1f, 0.1f, 0.1f, 16.0f));
-        specColorAnimation->SetKeyFrame(1.0f, Color(1.0f, 0.0f, 0.0f, 2.0f));
-        specColorAnimation->SetKeyFrame(2.0f, Color(1.0f, 1.0f, 0.0f, 2.0f));
-        specColorAnimation->SetKeyFrame(3.0f, Color(0.1f, 0.1f, 0.1f, 16.0f));
-        // Optionally associate material with scene to make sure shader parameter animation respects scene time scale
-        material->SetShaderParameterAnimation("MorphWeight", specColorAnimation);
         Technique* tech = material->GetTechnique(0);
         Pass* pass = tech->GetPass(0);
         pass->SetVertexShaderDefines("MORPH_ENABLED");
         morphGeometry->SetMaterial(material);
     }
 
-    morphGeometry->SetMorphWeight(0.0f); // Начальный вес морфинга
     morphGeometry->Commit();
     log->Write(LOG_INFO, "Success compete BuildUrhoGeometryMorphFromFBXMesh");
 
@@ -306,8 +297,6 @@ SharedPtr<Node> BuildUrhoGeometryMorphFromFBXMesh(Context* context, FbxMesh* fbx
         }
     }
 
-    morphGeometry->SetActiveMorpher(String("Face.M_F00_000_00_Fcl_ALL_Joy"));
-
     // Создание узла и компонента MorphGeometry
     morphGeometry->SetVertices(vertices);
     morphGeometry->SetIndices(indices);
@@ -315,13 +304,6 @@ SharedPtr<Node> BuildUrhoGeometryMorphFromFBXMesh(Context* context, FbxMesh* fbx
     auto* cache = context->GetSubsystem<ResourceCache>();
     auto* material = cache->GetResource<Material>("Materials/Morph.xml");
     if (material) {
-        SharedPtr<ValueAnimation> specColorAnimation(new ValueAnimation(context));
-        specColorAnimation->SetKeyFrame(0.0f, Color(0.1f, 0.1f, 0.1f, 16.0f));
-        specColorAnimation->SetKeyFrame(1.0f, Color(1.0f, 0.0f, 0.0f, 2.0f));
-        specColorAnimation->SetKeyFrame(2.0f, Color(1.0f, 1.0f, 0.0f, 2.0f));
-        specColorAnimation->SetKeyFrame(3.0f, Color(0.1f, 0.1f, 0.1f, 16.0f));
-        // Optionally associate material with scene to make sure shader parameter animation respects scene time scale
-        material->SetShaderParameterAnimation("MorphWeight", specColorAnimation);
         Technique* tech = material->GetTechnique(0);
         Pass* pass = tech->GetPass(0);
         pass->SetVertexShaderDefines("MORPH_ENABLED");

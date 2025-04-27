@@ -50,12 +50,12 @@ Material* MorphGeometry::GetMaterial() {
 
 void MorphGeometry::SetMorphWeight(float weight)
 {
-    //TODO: update texture
+    morphWeight__ = weight;
 }
 
 void MorphGeometry::AddMorpher(Morpher morpher) {
     morphDeltasMap_[morpher.name] = morpher;
-    if (!activeMorph_.Empty()) {
+    if (activeMorph_.Empty()) {
         activeMorph_ = morpher.name;
     }
 }
@@ -150,13 +150,18 @@ void MorphGeometry::UpdateBatches(const FrameInfo& frame)
 {
     Drawable::UpdateBatches(frame);
     Log* log = context_->GetSubsystem<Log>();
-    GetMaterial()->SetShaderParameter("MorhpWeight", morphWeight_);
+    // log->Write(LOG_DEBUG, String("MorphWeight=") + String(morphWeight_) + String(" ") + String(morphWeight__) + String(" For ") + String((unsigned long long) this) + String(" ") + GetNode()->GetName() + String(" Morpher: ") + GetActiveMorpher()) ;
+    GetMaterial()->SetShaderParameter("MorphWeight", morphWeight_);
 }
 
 void MorphGeometry::UpdateGeometry(const FrameInfo& frame)
 {
     time_ += frame.timeStep_;
-    morphWeight_ = sin(time_);
+    if (morphWeight__ != -1.0f) {
+        morphWeight_ = morphWeight__;
+    } else {
+        morphWeight_ = (1 + sin(time_)) / 2;
+    }
 }
 
 void MorphGeometry::OnWorldBoundingBoxUpdate()

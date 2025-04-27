@@ -68,7 +68,8 @@ private:
     Vector<MorphVertex> vertices_;
     Vector<i32> indices_;
     float time_;
-    float morphWeight_;
+    float morphWeight_ = 1;
+    float morphWeight__ = -1.0f;
 };
 
 }
