@@ -31,9 +31,8 @@ find_path(FBX_INCLUDE_DIR fbxsdk.h PATHS "$ENV{FBX_SDK}/include")
 find_library(FBX_LIB 
     NAMES libfbxsdk 
     PATHS 
-        "$ENV{FBX_SDK}/lib/vs2015/x64/release" 
-        "$ENV{FBX_SDK}/lib/vs2017/x64/release" 
-        "$ENV{FBX_SDK}/lib/vs2022/x64/release"
+        "$ENV{FBX_SDK}/lib/amd64/release"
+        "$ENV{FBX_SDK}/lib/x64/release"
 )
 
 if(NOT FBX_INCLUDE_DIR OR NOT FBX_LIB)
@@ -76,12 +75,12 @@ add_custom_command(TARGET MyFBXViewer POST_BUILD
         "${RESOURCE_DIR}/Data"
         "${OUTPUT_DIR}/Data"
         COMMAND ${CMAKE_COMMAND} -E copy_directory
-        "${RESOURCE_DIR}/FBXData"
-        "${OUTPUT_DIR}/FBXData"
+        "${RESOURCE_DIR}/CustomData"
+        "${OUTPUT_DIR}/CustomData"
 )
 
 # FBX SDK DLL
-set(FBX_DLL_PATH "$ENV{FBX_SDK}/lib/vs2015/x64/release/libfbxsdk.dll")
+set(FBX_DLL_PATH "$ENV{FBX_SDK}/lib/x64/release/libfbxsdk.dll")
 
 # Копирование libfbxsdk.dll (если он есть)
 if(EXISTS "${FBX_DLL_PATH}")

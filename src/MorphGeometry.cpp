@@ -2,29 +2,30 @@
 #include <Urho3D/Graphics/Graphics.h>
 #include <Urho3D/Graphics/Technique.h>
 #include <Urho3D/GraphicsAPI/ShaderVariation.h>
+#include <Urho3D/GraphicsAPI/Texture2D.h>
 #include <Urho3D/Graphics/Renderer.h>
 #include <Urho3D/Scene/Node.h>
 #include <Urho3D/Container/Vector.h>
 #include <Urho3D/IO/Log.h>
 #include <Urho3D/Core/Context.h>
+#include <Urho3D/Scene/ValueAnimation.h>
+
+#include <cmath>
 
 namespace Urho3D
 {
 
-MorphGeometry::MorphGeometry(Context* context) : Drawable(context, DrawableTypes::Geometry),
-      morphWeight_(0.0f)
+MorphGeometry::MorphGeometry(Context* context) : Drawable(context, DrawableTypes::Geometry)
 {
     geometry_ = new Geometry(context_);
     vertexBuffer_ = new VertexBuffer(context_);
     indexBuffer_ = new IndexBuffer(context_);
     batches_.Resize(1);
-    batches_[0].geometryType_ = GEOM_STATIC;
 }
 
-// Geometry* GetLodGeometry(i32 batchIndex, i32 level)
-// {
-//     return geometry_;
-// }
+UpdateGeometryType MorphGeometry::GetUpdateGeometryType() {
+    return UpdateGeometryType::UPDATE_MAIN_THREAD;
+}
 
 void MorphGeometry::SetVertices(const Vector<MorphVertex>& vertices)
 {
@@ -42,9 +43,34 @@ void MorphGeometry::SetMaterial(Material* material)
     batches_[0].material_ = material_;
 }
 
+Material* MorphGeometry::GetMaterial() {
+    return batches_[0].material_;
+}
+
 void MorphGeometry::SetMorphWeight(float weight)
 {
-    morphWeight_ = weight;
+    //TODO: update texture
+}
+
+void MorphGeometry::AddMorphDelta(String name, Vector<Vector3> morphDeltas) {
+    morphDeltasMap_[name] = morphDeltas;
+    if (!activeMorph_.Empty()) {
+        activeMorph_ = name;
+    }
+}
+
+Vector<String> MorphGeometry::GetMorphDeltasNames() {
+    return morphDeltasMap_.Keys();
+}
+
+void MorphGeometry::SetActiveMorph(String name) {
+    if (morphDeltasMap_.Contains(name) || name.Empty()) {
+        activeMorph_ = name;
+    }
+}
+
+String MorphGeometry::GetActiveMorph() {
+    return activeMorph_;
 }
 
 void MorphGeometry::Commit()
@@ -63,6 +89,15 @@ void MorphGeometry::Commit()
     elements.Push(VertexElement(TYPE_VECTOR2, SEM_TEXCOORD));
     elements.Push(VertexElement(TYPE_VECTOR4, SEM_TANGENT));
     elements.Push(VertexElement(TYPE_VECTOR3, SEM_TEXCOORD, 1)); // Используем второй набор текстурных координат для morphDelta
+    
+    if (!activeMorph_.Empty()) {
+        Vector<Vector3> morphDeltas = morphDeltasMap_[activeMorph_];
+
+        for (unsigned i = 0; i < vertices_.Size() && i < morphDeltas.Size(); ++i)
+        {
+            vertices_[i].morphDelta_ = morphDeltas[i];
+        }
+    }
 
     // Создание и настройка VertexBuffer
     vertexBuffer_ = new VertexBuffer(context_);
@@ -87,34 +122,32 @@ void MorphGeometry::Commit()
     log->Write(LOG_INFO, String("vertexBuffer_ size: ") + String(vertexBuffer_->GetVertexSize()));
     log->Write(LOG_INFO, String("indexBuffer_ size: ") + String(indexBuffer_->GetIndexSize()));
     log->Write(LOG_INFO, String("indexBuffer_ size: ") + String(indexBuffer_->GetIndexSize()));
+
+    PrimitiveTypes::i32 vertexCount = vertexBuffer_->GetVertexSize();
+
     // Обновление границ объекта для корректного отображения
     boundingBox_.Clear();
     for (const auto& vertex : vertices_)
         boundingBox_.Merge(vertex.position_);
+    log->Write(LOG_INFO,"Bounding box local: min=" + boundingBox_.min_.ToString() + ", max=" + boundingBox_.max_.ToString());
+
 }
 
 void MorphGeometry::UpdateBatches(const FrameInfo& frame)
 {
-    Log* log = context_->GetSubsystem<Log>();
-    // Обновление параметров шейдера
-    if (batches_[0].material_) {
-        batches_[0].material_->SetShaderParameter("uMorphWeight", morphWeight_);
-    }
-
-
     Drawable::UpdateBatches(frame);
+    Log* log = context_->GetSubsystem<Log>();
 }
 
 void MorphGeometry::UpdateGeometry(const FrameInfo& frame)
 {
-    // Здесь можно добавить обновление геометрии, если необходимо
+    time_ += frame.timeStep_;
+    // morphWeight_ = sin(time_);
 }
 
 void MorphGeometry::OnWorldBoundingBoxUpdate()
 {
-    worldBoundingBox_.Define(vertices_.Empty() ? BoundingBox() : BoundingBox(vertices_.Front().position_, vertices_.Front().position_));
-    for (i32 i = 1; i < vertices_.Size(); ++i)
-        worldBoundingBox_.Merge(vertices_[i].position_);
+    worldBoundingBox_ = boundingBox_.Transformed(node_->GetWorldTransform());
 }
 
 }

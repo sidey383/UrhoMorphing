@@ -33,13 +33,19 @@ public:
     void SetVertices(const Vector<MorphVertex>& vertices);
     void SetIndices(const Vector<i32>& indices);
     void SetMaterial(Material* material);
+    Material* GetMaterial();
     void SetMorphWeight(float weight);
+    void AddMorphDelta(String name, Vector<Vector3> morphDeltas);
+    Vector<String> GetMorphDeltasNames();
+    void SetActiveMorph(String name);
+    String GetActiveMorph();
 
     void Commit();
 
 protected:
     void UpdateBatches(const FrameInfo& frame) override;
     void UpdateGeometry(const FrameInfo& frame) override;
+    UpdateGeometryType GetUpdateGeometryType() override;
     // void SetGeometryData();
     void OnWorldBoundingBoxUpdate() override;
 
@@ -48,10 +54,13 @@ protected:
     SharedPtr<IndexBuffer> indexBuffer_;
     SharedPtr<Material> material_;
     SharedPtr<Geometry> geometry_;
+    Urho3D::HashMap<String, Vector<Vector3>> morphDeltasMap_;
+    String activeMorph_;
+    SharedPtr<Texture2D> morphTexture_;
 private:
     Vector<MorphVertex> vertices_;
     Vector<i32> indices_;
-    float morphWeight_;
+    float time_;
 };
 
 }

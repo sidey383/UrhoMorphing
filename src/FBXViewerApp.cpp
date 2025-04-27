@@ -41,6 +41,22 @@ void FBXViewerApp::Setup() {
     engineParameters_["LogName"] = "run.log";
     engineParameters_["LogLevel"] = LOG_DEBUG;
     RegisterAllComponents();
+    context_->GetSubsystem<ResourceCache>()->AddResourceDir("Resources/CustomData");
+}
+
+void MaterialSetScene(Scene* scene, Node* node, Log* log) {
+    log->Write(LOG_DEBUG, String("Check node ") + node->GetName());  
+    if (node->HasComponent<MorphGeometry>()) {
+        log->Write(LOG_DEBUG, String("Found MorphGeometry in ") + node->GetName());  
+        MorphGeometry* mg = node->GetComponent<MorphGeometry>();
+        if (mg->GetMaterial()) {
+            log->Write(LOG_DEBUG, String("Set scene for material of node ") + node->GetName());  
+            mg->GetMaterial()->SetScene(scene);
+        }
+        mg->Commit();
+    }
+    for (Node* child : node->GetChildren())
+    MaterialSetScene(scene, child, log);
 }
 
 void FBXViewerApp::Start() 
@@ -49,6 +65,7 @@ void FBXViewerApp::Start()
     SetupLighting();
 
     LogSceneContents(GetSubsystem<Log>(), scene_);
+    MaterialSetScene(scene_, scene_, GetSubsystem<Log>());
 
     Renderer* renderer = GetSubsystem<Renderer>();
     renderer->SetViewport(0, new Viewport(context_, scene_, cameraNode_->GetComponent<Camera>()));
@@ -110,11 +127,13 @@ void FBXViewerApp::CreateScene()
     yaw_ = cameraNode_->GetRotation().YawAngle();
     pitch_ = cameraNode_->GetRotation().PitchAngle();
 
-    SharedPtr<Node> fbxNode = LoadFBXToNode(context_, "FBXData/model.fbx");
-    if (fbxNode)
+    SharedPtr<Node> fbxNode = LoadFBXToNode(context_, "CustomData/character_1.fbx");
+    if (fbxNode) {
         scene_->CreateChild("ImportedFBX")->AddChild(fbxNode);
-    else
+        GetSubsystem<Log>()->Write(LOG_INFO, "Add fbx importet nodes");    
+    } else {
         GetSubsystem<Log>()->Write(LOG_ERROR, "Can't load model");    
+    }
 }
 
 void FBXViewerApp::SetupLighting()
