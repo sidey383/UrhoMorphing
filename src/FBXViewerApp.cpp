@@ -20,6 +20,7 @@
 #include <Urho3D/Engine/Engine.h>
 #include <Urho3D/Engine/Application.h>
 #include <Urho3D/Core/CoreEvents.h>
+#include <Urho3D/Graphics/Graphics.h>
 #include <Urho3D/Graphics/CustomGeometry.h>
 #include <Urho3D/Graphics/StaticModel.h>
 #include <Urho3D/Graphics/Model.h>
@@ -45,7 +46,8 @@ void FBXViewerApp::Setup() {
     engineParameters_["WindowWidth"] = 1280;
     engineParameters_["WindowHeight"] = 720;
     engineParameters_["LogName"] = "run.log";
-    engineParameters_["LogLevel"] = LOG_DEBUG;
+    engineParameters_["LogLe.vel"] = LOG_DEBUG;
+    engineParameters_["WindowResizable"] = true;
     RegisterAllComponents();
     context_->GetSubsystem<ResourceCache>()->AddResourceDir("Resources/CustomData");
 }
@@ -172,10 +174,15 @@ void FBXViewerApp::HandleUpdate(StringHash h, VariantMap& eventData) {
     if (cameraNode_ && cameraPositionText_)
     {
         Vector3 pos = cameraNode_->GetWorldPosition();
+        float yaw = cameraNode_->GetRotation().YawAngle();
+        float pitch = cameraNode_->GetRotation().PitchAngle();
         String text = "Camera: (" +
             ToStringWithPrecision((float) pos.x_, 2) + ", " +
             ToStringWithPrecision((float) pos.y_, 2) + ", " +
-            ToStringWithPrecision((float) pos.z_, 2) + ")";
+            ToStringWithPrecision((float) pos.z_, 2) + ", " +
+            ToStringWithPrecision((float) yaw, 2) + ", " +
+            ToStringWithPrecision((float) pitch, 2) + 
+            ")";
         cameraPositionText_->SetText(text);
     }
 }
@@ -207,6 +214,11 @@ void FBXViewerApp::HandleKeyDown(StringHash, VariantMap& eventData) {
     if (eventData[P_KEY].GetI32() == KEY_TAB) 
     {
         SetInteractMode(GetInteractModeNum() + 1);
+    }
+    if (eventData[P_KEY].GetI32() == KEY_F11)
+    {
+        auto* graphics = GetSubsystem<Graphics>();
+        graphics->ToggleFullscreen();
     }
 }
 
@@ -260,6 +272,16 @@ void FBXViewerApp::CreateCameraUI() {
     cameraPosZ_->SetStyleAuto();
     cameraPosZ_->SetMinSize(200, 20);
     cameraPosZ_->SetText("Z");
+
+    cameraPosYaw_ = cameraPanel->CreateChild<LineEdit>();
+    cameraPosYaw_->SetStyleAuto();
+    cameraPosYaw_->SetMinSize(200, 20);
+    cameraPosYaw_->SetText("Z");
+
+    cameraPosPitch_ = cameraPanel->CreateChild<LineEdit>();
+    cameraPosPitch_->SetStyleAuto();
+    cameraPosPitch_->SetMinSize(200, 20);
+    cameraPosPitch_->SetText("Z");
     
     // Кнопка "Применить"
     applyCameraButton_ = cameraPanel->CreateChild<Button>();
@@ -330,9 +352,16 @@ void FBXViewerApp::HandleApplyCameraPosition(StringHash eventType, VariantMap& e
     float y = ToFloat(cameraPosY_->GetText());
     float z = ToFloat(cameraPosZ_->GetText());
 
+    float yaw = ToFloat(cameraPosYaw_->GetText());
+    float pitch = ToFloat(cameraPosPitch_->GetText());
+
     cameraNode_->SetWorldPosition(Vector3(x, y, z));
 
-    log->Write(LOG_INFO, "Camera position set to (" + ToStringWithPrecision(x, 2) + ", " + ToStringWithPrecision(y, 2) + ", " + ToStringWithPrecision(z, 2) + ")");
+    yaw_ = yaw;
+    pitch_ = pitch;
+    cameraNode_->SetRotation(Quaternion(pitch_, yaw_, 0.0f));
+
+    log->Write(LOG_INFO, "Camera position set to (" + ToStringWithPrecision(x, 2) + ", " + ToStringWithPrecision(y, 2) + ", " + ToStringWithPrecision(z, 2) + ", " + ToStringWithPrecision(yaw, 2) + ", " + ToStringWithPrecision(pitch, 2) + ")");
 }
 
 void FBXViewerApp::HandleSliderChanged(StringHash eventType, VariantMap& eventData)

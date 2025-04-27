@@ -61,6 +61,8 @@ private:
     Urho3D::SharedPtr<Urho3D::LineEdit> cameraPosX_;
     Urho3D::SharedPtr<Urho3D::LineEdit> cameraPosY_;
     Urho3D::SharedPtr<Urho3D::LineEdit> cameraPosZ_;
+    Urho3D::SharedPtr<Urho3D::LineEdit> cameraPosYaw_;
+    Urho3D::SharedPtr<Urho3D::LineEdit> cameraPosPitch_;
     Urho3D::SharedPtr<Urho3D::Button> applyCameraButton_;
     Urho3D::SharedPtr<Urho3D::Text> cameraPositionText_;
     float yaw_{};
