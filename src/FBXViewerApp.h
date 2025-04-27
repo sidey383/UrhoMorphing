@@ -27,4 +27,5 @@ private:
     Urho3D::SharedPtr<Urho3D::Node> cameraNode_;
     float yaw_{};
     float pitch_{};
+    float moveSpeed_ = 1.0f;
 };

@@ -12,17 +12,6 @@ Texture1D tMorphWeigthMap : register(t6);
 SamplerState sMorphWeigthMap : register(s6);
 // SamplerState sMorphTextureMap : register(s7);
 float cMorphWeight;
-cbuffer MaterialPS : register(b4)
-{
-    float4 cMatDiffColor;
-    float3 cMatEmissiveColor;
-    float3 cMatEnvMapColor;
-    float4 cMatSpecColor;
-    #ifdef PBR
-        float cRoughness;
-        float cMetallic;
-    #endif
-}
 #endif
 
 void VS(float4 iPos : POSITION,
@@ -97,7 +86,7 @@ void VS(float4 iPos : POSITION,
     float3 modelPos = iPos.xyz;
 
     #ifdef MORPH_ENABLED
-        modelPos += float3(cMorphWeight, cMorphWeight, cMorphWeight);
+        modelPos += aMorphDelta * cMorphWeight;
     #endif
     float4x3 modelMatrix = iModelMatrix;
     float3 worldPos = mul(modelMatrix, modelPos);

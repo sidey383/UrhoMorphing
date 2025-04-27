@@ -82,8 +82,11 @@ void FBXViewerApp::Start()
 void FBXViewerApp::MoveCamera(float timeStep) {
     auto* input = GetSubsystem<Input>();
     const float MOUSE_SENSITIVITY = 0.1f;
-    const float MOVE_SPEED = 5.0f;
+    const float SPEED_STEP = 1.0f; // Шаг изменения скорости
+    const float MIN_SPEED = 1.0f;
+    const float MAX_SPEED = 100.0f;
 
+    // Обработка вращения камеры при зажатой правой кнопке мыши
     if (input->GetMouseButtonDown(MOUSEB_RIGHT)) {
         IntVector2 move = input->GetMouseMove();
         yaw_ += MOUSE_SENSITIVITY * move.x_;
@@ -91,6 +94,14 @@ void FBXViewerApp::MoveCamera(float timeStep) {
         cameraNode_->SetRotation(Quaternion(pitch_, yaw_, 0.0f));
     }
 
+    // Изменение скорости перемещения с помощью колесика мыши
+    int wheelDelta = input->GetMouseMoveWheel();
+    if (wheelDelta != 0) {
+        moveSpeed_ += SPEED_STEP * wheelDelta;
+        moveSpeed_ = Clamp(moveSpeed_, MIN_SPEED, MAX_SPEED);
+    }
+
+    // Перемещение камеры
     Vector3 dir;
     if (input->GetKeyDown(KEY_W)) dir += Vector3::FORWARD;
     if (input->GetKeyDown(KEY_S)) dir += Vector3::BACK;
@@ -99,7 +110,7 @@ void FBXViewerApp::MoveCamera(float timeStep) {
     if (input->GetKeyDown(KEY_Q)) dir += Vector3::DOWN;
     if (input->GetKeyDown(KEY_E)) dir += Vector3::UP;
 
-    cameraNode_->Translate(dir * MOVE_SPEED * timeStep);
+    cameraNode_->Translate(dir * moveSpeed_ * timeStep);
 }
 
 void FBXViewerApp::HandleUpdate(StringHash, VariantMap& eventData) {

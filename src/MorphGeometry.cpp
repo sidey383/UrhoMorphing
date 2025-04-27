@@ -41,6 +41,7 @@ void MorphGeometry::SetMaterial(Material* material)
 {
     material_ = material;
     batches_[0].material_ = material_;
+    batches_[0].material_->SetShaderParameter("MorphWeight", morphWeight_);
 }
 
 Material* MorphGeometry::GetMaterial() {
@@ -52,24 +53,24 @@ void MorphGeometry::SetMorphWeight(float weight)
     //TODO: update texture
 }
 
-void MorphGeometry::AddMorphDelta(String name, Vector<Vector3> morphDeltas) {
-    morphDeltasMap_[name] = morphDeltas;
+void MorphGeometry::AddMorpher(Morpher morpher) {
+    morphDeltasMap_[morpher.name] = morpher;
     if (!activeMorph_.Empty()) {
-        activeMorph_ = name;
+        activeMorph_ = morpher.name;
     }
 }
 
-Vector<String> MorphGeometry::GetMorphDeltasNames() {
+Vector<String> MorphGeometry::GetMorpherNames() {
     return morphDeltasMap_.Keys();
 }
 
-void MorphGeometry::SetActiveMorph(String name) {
+void MorphGeometry::SetActiveMorpher(String name) {
     if (morphDeltasMap_.Contains(name) || name.Empty()) {
         activeMorph_ = name;
     }
 }
 
-String MorphGeometry::GetActiveMorph() {
+String MorphGeometry::GetActiveMorpher() {
     return activeMorph_;
 }
 
@@ -90,12 +91,24 @@ void MorphGeometry::Commit()
     elements.Push(VertexElement(TYPE_VECTOR4, SEM_TANGENT));
     elements.Push(VertexElement(TYPE_VECTOR3, SEM_TEXCOORD, 1)); // Используем второй набор текстурных координат для morphDelta
     
+    for (i32 i = 0; i < vertices_.Size(); ++i) {
+        vertices_[i].morphDelta_ = Vector3::ZERO;
+    }
     if (!activeMorph_.Empty()) {
-        Vector<Vector3> morphDeltas = morphDeltasMap_[activeMorph_];
+        Morpher morpher = morphDeltasMap_[activeMorph_];
 
-        for (unsigned i = 0; i < vertices_.Size() && i < morphDeltas.Size(); ++i)
+        log->Write(LOG_DEBUG, 
+            String("Load morpher for gemoetry ") + morpher.name + 
+            String(" with ") + String(morpher.indexes.Size()) + 
+            String("Nodes")
+        );
+
+        for (i32 i = 0; i < morpher.indexes.Size(); ++i)
         {
-            vertices_[i].morphDelta_ = morphDeltas[i];
+            auto index = morpher.indexes[i];
+            if (index < vertices_.Size()) {
+                vertices_[index].morphDelta_ = morpher.morphDeltas[i];
+            }
         }
     }
 
@@ -137,12 +150,13 @@ void MorphGeometry::UpdateBatches(const FrameInfo& frame)
 {
     Drawable::UpdateBatches(frame);
     Log* log = context_->GetSubsystem<Log>();
+    GetMaterial()->SetShaderParameter("MorhpWeight", morphWeight_);
 }
 
 void MorphGeometry::UpdateGeometry(const FrameInfo& frame)
 {
     time_ += frame.timeStep_;
-    // morphWeight_ = sin(time_);
+    morphWeight_ = sin(time_);
 }
 
 void MorphGeometry::OnWorldBoundingBoxUpdate()

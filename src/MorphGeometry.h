@@ -22,6 +22,13 @@ struct MorphVertex
     Vector3 morphDelta_;
 };
 
+struct Morpher 
+{
+    String name;
+    Vector<i32> indexes;
+    Vector<Vector3> morphDeltas;
+};
+
 class MorphGeometry : public Drawable
 {
     URHO3D_OBJECT(MorphGeometry, Drawable);
@@ -35,10 +42,10 @@ public:
     void SetMaterial(Material* material);
     Material* GetMaterial();
     void SetMorphWeight(float weight);
-    void AddMorphDelta(String name, Vector<Vector3> morphDeltas);
-    Vector<String> GetMorphDeltasNames();
-    void SetActiveMorph(String name);
-    String GetActiveMorph();
+    void AddMorpher(Morpher morpher);
+    Vector<String> GetMorpherNames();
+    void SetActiveMorpher(String name);
+    String GetActiveMorpher();
 
     void Commit();
 
@@ -54,13 +61,14 @@ protected:
     SharedPtr<IndexBuffer> indexBuffer_;
     SharedPtr<Material> material_;
     SharedPtr<Geometry> geometry_;
-    Urho3D::HashMap<String, Vector<Vector3>> morphDeltasMap_;
+    Urho3D::HashMap<String, Morpher> morphDeltasMap_;
     String activeMorph_;
     SharedPtr<Texture2D> morphTexture_;
 private:
     Vector<MorphVertex> vertices_;
     Vector<i32> indices_;
     float time_;
+    float morphWeight_;
 };
 
 }
