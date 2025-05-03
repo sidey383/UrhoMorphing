@@ -13,14 +13,14 @@
 
 using namespace Urho3D;
 
-const float MODEL_MULTIPLIER = 1.0f;
-
 struct ControlPointsMorph {
     // Если 0 - изменний не требуется
     // Имеет размер равный количеству контрольных точек
     Vector<Vector3> diff;
     // Название морфа из fbx
     String name;
+    // Положение центра для сферической интерполяции
+    Vector3 center;
 };
 
 struct ControlPoints {
@@ -66,6 +66,15 @@ ControlPointsMorph LoadPointsMorph(Context* context, FbxBlendShapeChannel* chann
     return morph;
 }
 
+void WriteProperties(Log* log, FbxObject* node) {
+    FbxProperty prop = node->GetFirstProperty();
+    while (prop.IsValid()) {
+        std::string propName = prop.GetNameAsCStr();
+        log->Write(LOG_INFO, "Find property for  " + String(node->GetName()) + " with name " + String(propName.c_str()));
+        prop = node->GetNextProperty(prop);
+    }
+}
+
 ControlPoints LoadControlPointsWithMorphs(Context* context, FbxMesh* fbxMesh) {
     auto* log = context->GetSubsystem<Log>();
     log->Write(LOG_DEBUG, "Start LoadControlPointsWithMorphs");
@@ -80,13 +89,21 @@ ControlPoints LoadControlPointsWithMorphs(Context* context, FbxMesh* fbxMesh) {
         FbxDeformer* deformer = fbxMesh->GetDeformer(deformerIndex);
         if (!deformer)
             continue;
+        
         FbxBlendShape* blendShape = static_cast<FbxBlendShape*>(deformer);
         for (int channelIndex = 0; channelIndex < blendShape->GetBlendShapeChannelCount(); ++channelIndex)
         {    
             FbxBlendShapeChannel* channel = blendShape->GetBlendShapeChannel(channelIndex);
             if (!channel || channel->GetTargetShapeCount() == 0)
                 continue;
+            WriteProperties(log, channel);
             ControlPointsMorph morph = LoadPointsMorph(context, channel, points.points, points.count);
+            FbxProperty prop = fbxMesh->FindProperty(("Center_" + String(channel->GetName())).CString());
+            if (prop.IsValid()) {
+                FbxDouble3 value = prop.Get<FbxDouble3>();
+                morph.center = Vector3((float) value[0], (float) value[1], (float) value[2]);
+                log->Write(LOG_INFO, "Fund property  " + String(prop.GetName().Buffer()) + " with vector " + String(morph.center));
+            }
             points.morphs.Push(morph);
         }
     }
@@ -101,7 +118,8 @@ void LoadMorphGeometry(Context* context, ControlPoints points, FbxMesh* fbxMesh,
         morphers.Push({
             m.name,
             Vector<i32>(),
-            Vector<Vector3>()
+            Vector<Vector3>(),
+            m.center
         });
     }
     Vector<MorphVertex> vertices;
@@ -120,7 +138,6 @@ void LoadMorphGeometry(Context* context, ControlPoints points, FbxMesh* fbxMesh,
             int ctrlPointIndex = fbxMesh->GetPolygonVertex(i, j);
             FbxVector4 pos = points.points[ctrlPointIndex];
             Vector3 position = toUrho(pos);
-            position *= MODEL_MULTIPLIER;
 
             // Нормаль
             Vector3 normal = Vector3::UP;
@@ -165,9 +182,11 @@ void LoadMorphGeometry(Context* context, ControlPoints points, FbxMesh* fbxMesh,
     }
 }
 
-SharedPtr<Node> BuildUrhoGeometryMorphFromFBXMeshNew(Context* context, FbxMesh* fbxMesh) 
+SharedPtr<Node> BuildUrhoGeometryMorphFromFBXMeshNew(Context* context, FbxNode* fbxNode) 
 {
     auto* log = context->GetSubsystem<Log>();
+    FbxMesh* fbxMesh = fbxNode->GetMesh();
+    WriteProperties(log, fbxNode);
     log->Write(LOG_INFO, "RUN BuildUrhoGeometryMorphFromFBXMeshNew");
     SharedPtr<Node> node(new Node(context));
 
@@ -190,215 +209,6 @@ SharedPtr<Node> BuildUrhoGeometryMorphFromFBXMeshNew(Context* context, FbxMesh* 
 
     return node;
 }
-
-SharedPtr<Node> BuildUrhoGeometryMorphFromFBXMesh(Context* context, FbxMesh* fbxMesh)
-{
-    auto* log = context->GetSubsystem<Log>();
-    log->Write(LOG_INFO, "RUN BuildUrhoGeometryMorphFromFBXMesh");
-
-    SharedPtr<Node> node(new Node(context));
-    auto* morphGeometry = node->CreateComponent<MorphGeometry>();
-
-    // Извлечение контрольных точек
-    FbxVector4* controlPoints = fbxMesh->GetControlPoints();
-    int controlPointCount = fbxMesh->GetControlPointsCount();
-    // Создание вершин
-    Vector<MorphVertex> vertices;
-    Vector<i32> indices;
-    for (int i = 0; i < fbxMesh->GetPolygonCount(); ++i)
-    {
-        int polySize = fbxMesh->GetPolygonSize(i);
-        if (polySize != 3)
-        {
-            log->Write(LOG_ERROR, "Can't process non-triangulated polygon");
-            return SharedPtr<Node>();
-        }
-
-        for (int j = 0; j < polySize; ++j)
-        {
-            int ctrlPointIndex = fbxMesh->GetPolygonVertex(i, j);
-            FbxVector4 pos = controlPoints[ctrlPointIndex];
-            Vector3 position((float)pos[0], (float)pos[1], (float)pos[2]);
-            position *= MODEL_MULTIPLIER;
-
-            // Нормаль
-            Vector3 normal = Vector3::UP;
-            FbxVector4 fbxNormal;
-            if (fbxMesh->GetPolygonVertexNormal(i, j, fbxNormal))
-                normal = Vector3((float)fbxNormal[0], (float)fbxNormal[1], (float)fbxNormal[2]);
-
-            // UV
-            Vector2 uv = Vector2::ZERO;
-            FbxStringList uvSetNames;
-            fbxMesh->GetUVSetNames(uvSetNames);
-            if (uvSetNames.GetCount() > 0)
-            {
-                FbxVector2 fbxUV;
-                bool unmapped;
-                if (fbxMesh->GetPolygonVertexUV(i, j, uvSetNames[0], fbxUV, unmapped))
-                    uv = Vector2((float)fbxUV[0], 1.0f - (float)fbxUV[1]);
-            }
-
-            MorphVertex vertex;
-            vertex.position_ = position;
-            vertex.normal_ = normal;
-            vertex.texCoord_ = uv;
-            vertex.tangent_ = Vector4(1.0f, 0.0f, 0.0f, 1.0f);
-
-            vertices.Push(vertex);
-            indices.Push(vertices.Size() - 1);
-        }
-    }
-
-        // Извлечение морф-таргета
-    log->Write(LOG_INFO, String("Found ") + String(fbxMesh->GetDeformerCount()) + String(" Deformets for ") + fbxMesh->GetName());
-    for (int deformerIndex = 0; deformerIndex < fbxMesh->GetDeformerCount(); ++deformerIndex)
-    {
-        FbxDeformer* deformer = fbxMesh->GetDeformer(deformerIndex);
-        if (!deformer)
-            continue;
-
-        log->Write(LOG_INFO, String("Load deformer ") + String(deformerIndex) + String(" Name: ") + String(deformer->GetName()));
-        FbxBlendShape* blendShape = static_cast<FbxBlendShape*>(deformer);
-        
-
-        for (int channelIndex = 0; channelIndex < blendShape->GetBlendShapeChannelCount(); ++channelIndex)
-        {    
-            FbxBlendShapeChannel* channel = blendShape->GetBlendShapeChannel(channelIndex);
-            if (!channel || channel->GetTargetShapeCount() == 0)
-                continue;
-            log->Write(LOG_INFO, String("Load channel ") + String(channelIndex) + String(" With name: ") + String(channel->GetName()));
-
-            FbxShape* shape = channel->GetTargetShape(0);
-            int numVertices = shape->GetControlPointsCount();
-            int* indexes = shape->GetControlPointIndices();
-            FbxVector4* shapePoints = shape->GetControlPoints();
-
-            if (!indexes) {
-                log->Write(LOG_WARNING, String("Can't found indexes for channel ") + String(channelIndex) + String(" With name: ") + String(channel->GetName()));
-                break;
-            }
-
-            Morpher morpher{
-                channel->GetName(),
-                Vector<i32>(numVertices, 0),
-                Vector<Vector3>(numVertices, Vector3::ZERO)
-            };
-            log->Write(LOG_DEBUG, String("numVertices ") + String(numVertices));
-            for (int i = 0; i < numVertices; ++i)
-            {
-                FbxVector4 base = controlPoints[i];
-                FbxVector4 delta = shapePoints[i] - base;
-                morpher.morphDeltas[i] = Vector3((float)delta[0], (float)delta[1], (float)delta[2]);
-                morpher.indexes[i] = i;
-                // indexes[i];
-            }
-            morphGeometry->AddMorpher(morpher);
-        }
-    }
-
-    // Создание узла и компонента MorphGeometry
-    morphGeometry->SetVertices(vertices);
-    morphGeometry->SetIndices(indices);
-
-    auto* cache = context->GetSubsystem<ResourceCache>();
-    auto* material = cache->GetResource<Material>("Materials/Morph.xml");
-    if (material) {
-        Technique* tech = material->GetTechnique(0);
-        Pass* pass = tech->GetPass(0);
-        pass->SetVertexShaderDefines("MORPH_ENABLED");
-        morphGeometry->SetMaterial(material);
-    }
-
-    morphGeometry->SetMorphWeight(0.0f); // Начальный вес морфинга
-    morphGeometry->Commit();
-    log->Write(LOG_INFO, "Success compete BuildUrhoGeometryMorphFromFBXMesh");
-
-    return node;
-}
-
-
-SharedPtr<Node> BuildUrhoGeometryFromFBXMesh(Context* context, FbxMesh* fbxMesh)
-{
-    auto* log = context->GetSubsystem<Log>();
-    log->Write(LOG_INFO, "RUN BuildUrhoGeometryFromFBXMesh");
-    FbxVector4* controlPoints = fbxMesh->GetControlPoints();
-    SharedPtr<Node> node(new Node(context));
-    CustomGeometry* geom = node->CreateComponent<CustomGeometry>();
-    geom->SetNumGeometries(1);
-    geom->SetDynamic(false);
-    geom->BeginGeometry(0, TRIANGLE_LIST);
-
-    for (int i = 0; i < fbxMesh->GetPolygonCount(); ++i)
-    {
-        int polySize = fbxMesh->GetPolygonSize(i);
-        if (polySize != 3) 
-        {
-            context->GetSubsystem<Log>()->Write(LOG_ERROR, "Can't process non-triangulated polygon");
-            return SharedPtr<Node>();
-        }
-
-        for (int j = 0; j < polySize; ++j)
-        {
-            int ctrlPointIndex = fbxMesh->GetPolygonVertex(i, j);
-            FbxVector4 pos = controlPoints[ctrlPointIndex];
-            Vector3 position((float)pos[0], (float)pos[1], (float)pos[2]);
-            position *= MODEL_MULTIPLIER;
-
-            // Нормаль
-            Vector3 normal = Vector3::UP;
-            FbxVector4 fbxNormal;
-            if (fbxMesh->GetPolygonVertexNormal(i, j, fbxNormal))
-                normal = Vector3((float)fbxNormal[0], (float)fbxNormal[1], (float)fbxNormal[2]);
-
-            // UV
-            Vector2 uv = Vector2::ZERO;
-            FbxStringList uvSetNames;
-            fbxMesh->GetUVSetNames(uvSetNames);
-            if (uvSetNames.GetCount() > 0)
-            {
-                FbxVector2 fbxUV;
-                bool unmapped;
-                if (fbxMesh->GetPolygonVertexUV(i, j, uvSetNames[0], fbxUV, unmapped))
-                    uv = Vector2((float)fbxUV[0], 1.0f - (float)fbxUV[1]);
-            }
-
-            geom->DefineVertex(position);
-            geom->DefineNormal(normal);
-            geom->DefineTexCoord(uv);
-            geom->DefineTangent(Vector4(1.0f, 0.0f, 0.0f, 1.0f));
-        }
-    }
-
-    geom->Commit();
-
-    auto* cache = context->GetSubsystem<ResourceCache>();
-    auto* material = cache->GetResource<Material>("Materials/Stone.xml");
-    if (material)
-        geom->SetMaterial(material);
-
-    return node;
-}
-
-
-FbxMesh* GetFirstMeshFromScene(Log* log, FbxScene* scene)
-{
-    log->Write(LOG_INFO, "RUN GetFirstMeshFromScene");
-    FbxNode* root = scene->GetRootNode();
-    if (!root)
-        return nullptr;
-    for (int i = 0; i < root->GetChildCount(); ++i)
-    {
-        FbxNode* child = root->GetChild(i);
-        if (FbxMesh* mesh = child->GetMesh()) 
-        {
-            return mesh;
-        }
-    }
-
-    return nullptr;
-}
-
 
 FbxScene* ImportFBXScene(Context* context, FbxManager* manager, const String& fbxPath)
 {
@@ -426,7 +236,7 @@ FbxScene* ImportFBXScene(Context* context, FbxManager* manager, const String& fb
     return scene;
 }
 
-void LoadFBXNodeRecursive(Context* context, Node* parentNode, FbxNode* fbxNode, SharedPtr<Node>  nodeLoader (Context* context, FbxMesh* fbxMesh))
+void LoadFBXNodeRecursive(Context* context, Node* parentNode, FbxNode* fbxNode, SharedPtr<Node> nodeLoader (Context* context, FbxNode* fbxMesh))
 {
     // Создаём новый Urho3D Node с именем из FBX
     Node* node = parentNode->CreateChild(fbxNode->GetName());
@@ -436,7 +246,7 @@ void LoadFBXNodeRecursive(Context* context, Node* parentNode, FbxNode* fbxNode, 
     if (fbxMesh)
     {
         // Заменяешь на MorphGeometry, если нужно
-        SharedPtr<Node> morphGeom = nodeLoader(context, fbxMesh);
+        SharedPtr<Node> morphGeom = nodeLoader(context, fbxNode);
         if (morphGeom)
             node->AddChild(morphGeom);
     }
@@ -472,8 +282,8 @@ SharedPtr<Node> LoadFBXToNode(Context* context, const String& fbxPath)
 
 
     SharedPtr<Node> resultMorhp = SharedPtr<Node>(node->CreateChild("Morph"));
-    LoadFBXNodeRecursive(context, resultMorhp, scene->GetRootNode(), [](Context* ctx, FbxMesh* mesh) {
-        return BuildUrhoGeometryMorphFromFBXMeshNew(ctx, mesh);
+    LoadFBXNodeRecursive(context, resultMorhp, scene->GetRootNode(), [](Context* ctx, FbxNode* node) {
+        return BuildUrhoGeometryMorphFromFBXMeshNew(ctx, node);
     });
     resultMorhp->SetPosition(Vector3(0, 0, 0));
     node->AddChild(resultMorhp);

@@ -44,7 +44,6 @@ private:
     void HandleUpdate(Urho3D::StringHash eventType, Urho3D::VariantMap& eventData);
     void HandleKeyDown(Urho3D::StringHash eventType, Urho3D::VariantMap& eventData);
     void HandleSliderChanged(Urho3D::StringHash eventType, Urho3D::VariantMap& eventData);
-    void HandleDropDownListChanged(Urho3D::StringHash eventType, Urho3D::VariantMap& eventData);
     void HandleApplyCameraPosition(Urho3D::StringHash eventType, Urho3D::VariantMap& eventData);
     void SetupLighting();
     void CreateScene();

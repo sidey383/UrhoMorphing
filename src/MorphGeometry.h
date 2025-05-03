@@ -10,6 +10,8 @@
 #include <Urho3D/Math/Vector2.h>
 #include <Urho3D/Math/Vector4.h>
 
+#define TOTAL_MORPH_COUNT 11
+
 namespace Urho3D
 {
 
@@ -19,7 +21,6 @@ struct MorphVertex
     Vector3 normal_;
     Vector2 texCoord_;
     Vector4 tangent_;
-    Vector3 morphDelta_;
 };
 
 struct Morpher 
@@ -27,6 +28,7 @@ struct Morpher
     String name;
     Vector<i32> indexes;
     Vector<Vector3> morphDeltas;
+    Vector3 center;
 };
 
 class MorphGeometry : public Drawable
@@ -41,10 +43,10 @@ public:
     void SetIndices(const Vector<i32>& indices);
     void SetMaterial(Material* material);
     Material* GetMaterial();
-    void SetMorphWeight(float weight);
+    void SetMorphWeight(String name, float weight);
     void AddMorpher(Morpher morpher);
+    Morpher& getMorper(String name);
     Vector<String> GetMorpherNames();
-    void SetActiveMorpher(String name);
     String GetActiveMorpher();
 
     void Commit();
@@ -53,7 +55,6 @@ protected:
     void UpdateBatches(const FrameInfo& frame) override;
     void UpdateGeometry(const FrameInfo& frame) override;
     UpdateGeometryType GetUpdateGeometryType() override;
-    // void SetGeometryData();
     void OnWorldBoundingBoxUpdate() override;
 
 protected:
@@ -61,15 +62,20 @@ protected:
     SharedPtr<IndexBuffer> indexBuffer_;
     SharedPtr<Material> material_;
     SharedPtr<Geometry> geometry_;
-    Urho3D::HashMap<String, Morpher> morphDeltasMap_;
-    String activeMorph_;
+    Vector<String> morpherOrder_;
+    HashMap<String, Morpher> morphDeltasMap_;
+    i32 activeMorph_;
     SharedPtr<Texture2D> morphTexture_;
 private:
+    void CommitVertexData();
+
+    Vector<float> vertexData_;
     Vector<MorphVertex> vertices_;
+    Vector<String> activeMorphs_;
     Vector<i32> indices_;
+    Vector<float> morphWeights_ = Vector(TOTAL_MORPH_COUNT, 0.0f);
+    i32 morphCount_ = 0;
     float time_;
-    float morphWeight_ = 1;
-    float morphWeight__ = -1.0f;
 };
 
 }

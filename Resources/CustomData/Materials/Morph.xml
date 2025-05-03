@@ -5,5 +5,27 @@
     <texture unit="normal" name="Textures/StoneNormal.dds" />
     <shader psdefines="PACKEDNORMAL" />
     <parameter name="MatSpecColor" value="0.3 0.3 0.3 16" />    
-    <parameter name="MorhpWeight" value="0.0 0.0 0.0 1.0" />
+    <parameter name="MorphWeights0"/>
+    <parameter name="MorphWeights1"/>
+    <parameter name="MorphWeights2"/>
+    <parameter name="MorphWeights3"/>
+    <parameter name="MorphWeights4"/>
+    <parameter name="MorphWeights5"/>
+    <parameter name="MorphWeights6"/>
+    <parameter name="MorphWeights7"/>
+    <parameter name="MorphWeights8"/>
+    <parameter name="MorphWeights9"/>
+    <parameter name="MorphWeights10"/>
+    <parameter name="MorphCenter0"/>
+    <parameter name="MorphCenter1"/>
+    <parameter name="MorphCenter2"/>
+    <parameter name="MorphCenter3"/>
+    <parameter name="MorphCenter4"/>
+    <parameter name="MorphCenter5"/>
+    <parameter name="MorphCenter6"/>
+    <parameter name="MorphCenter7"/>
+    <parameter name="MorphCenter8"/>
+    <parameter name="MorphCenter9"/>
+    <parameter name="MorphCenter10"/>
+    <parameter name="MorphCount"/>
 </material>

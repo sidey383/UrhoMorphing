@@ -12,6 +12,26 @@
 
 #include <cmath>
 
+#define FIRST_MORPH_NUMBER 2
+
+inline void* GetMorphVertexPtr(void* buffer, size_t nodeNumber) {
+    return (void*) (
+        reinterpret_cast<uint8_t*>(buffer) +(
+            (sizeof(Urho3D::MorphVertex) + sizeof(Urho3D::Vector3) * TOTAL_MORPH_COUNT) * nodeNumber
+        )
+    );
+}
+
+inline void* GetMorphDeltaPtr(void* buffer, size_t nodeNumber, size_t morphNumber) {
+    return (void*) (
+        reinterpret_cast<uint8_t*>(buffer) + (
+           (sizeof(Urho3D::MorphVertex) + sizeof(Urho3D::Vector3) * TOTAL_MORPH_COUNT) * nodeNumber +
+           sizeof(Urho3D::MorphVertex) + sizeof(Urho3D::Vector3) * morphNumber
+        )
+    );
+}
+
+
 namespace Urho3D
 {
 
@@ -41,37 +61,45 @@ void MorphGeometry::SetMaterial(Material* material)
 {
     material_ = material;
     batches_[0].material_ = material_;
-    batches_[0].material_->SetShaderParameter("MorphWeight", morphWeight_);
+    for (i32 i = 0; i < TOTAL_MORPH_COUNT; i++) {
+        batches_[0].material_->SetShaderParameter("MorphWeights" + String(i), morphWeights_[i]);
+    }
+    batches_[0].material_->SetShaderParameter("MorphCount", morphCount_);
 }
 
 Material* MorphGeometry::GetMaterial() {
     return batches_[0].material_;
 }
 
-void MorphGeometry::SetMorphWeight(float weight)
+void MorphGeometry::SetMorphWeight(String name, float weight)
 {
-    morphWeight__ = weight;
+    i32 index = activeMorphs_.IndexOf(name);
+    Log* log = context_->GetSubsystem<Log>();
+    if (index >= 0 && index < activeMorphs_.Size() && index < morphWeights_.Size()) {
+        morphWeights_[index] = weight;
+    }
 }
 
 void MorphGeometry::AddMorpher(Morpher morpher) {
+    if (morpherOrder_.Size() >= TOTAL_MORPH_COUNT) return;
+    bool addOrder = !morphDeltasMap_.Contains(morpher.name);
     morphDeltasMap_[morpher.name] = morpher;
-    if (activeMorph_.Empty()) {
-        activeMorph_ = morpher.name;
-    }
+    if (addOrder) morpherOrder_.Push(morpher.name);
+    activeMorph_ = morpherOrder_.IndexOf(morpher.name);
 }
 
 Vector<String> MorphGeometry::GetMorpherNames() {
-    return morphDeltasMap_.Keys();
+    return Vector<String>(activeMorphs_);
 }
 
-void MorphGeometry::SetActiveMorpher(String name) {
-    if (morphDeltasMap_.Contains(name) || name.Empty()) {
-        activeMorph_ = name;
-    }
+Morpher& MorphGeometry::getMorper(String name) {
+    return morphDeltasMap_[name];
 }
 
 String MorphGeometry::GetActiveMorpher() {
-    return activeMorph_;
+    if (activeMorph_ >= 0 && activeMorph_ < morpherOrder_.Size())
+        return morpherOrder_[activeMorph_];
+    return String();
 }
 
 void MorphGeometry::Commit()
@@ -83,40 +111,8 @@ void MorphGeometry::Commit()
     log->Write(LOG_INFO, "MorphGeometry::Commit");
     log->Write(LOG_INFO, String("vertices_ size: ") + String(vertices_.Size()));
     log->Write(LOG_INFO, String("indices_ size: ") + String(vertices_.Size()));
-    // Определение формата вершин
-    Vector<VertexElement> elements;
-    elements.Push(VertexElement(TYPE_VECTOR3, SEM_POSITION));
-    elements.Push(VertexElement(TYPE_VECTOR3, SEM_NORMAL));
-    elements.Push(VertexElement(TYPE_VECTOR2, SEM_TEXCOORD));
-    elements.Push(VertexElement(TYPE_VECTOR4, SEM_TANGENT));
-    elements.Push(VertexElement(TYPE_VECTOR3, SEM_TEXCOORD, 1)); // Используем второй набор текстурных координат для morphDelta
-    
-    for (i32 i = 0; i < vertices_.Size(); ++i) {
-        vertices_[i].morphDelta_ = Vector3::ZERO;
-    }
-    if (!activeMorph_.Empty()) {
-        Morpher morpher = morphDeltasMap_[activeMorph_];
-
-        log->Write(LOG_DEBUG, 
-            String("Load morpher for gemoetry ") + morpher.name + 
-            String(" with ") + String(morpher.indexes.Size()) + 
-            String("Nodes")
-        );
-
-        for (i32 i = 0; i < morpher.indexes.Size(); ++i)
-        {
-            auto index = morpher.indexes[i];
-            if (index < vertices_.Size()) {
-                vertices_[index].morphDelta_ = morpher.morphDeltas[i];
-            }
-        }
-    }
-
-    // Создание и настройка VertexBuffer
-    vertexBuffer_ = new VertexBuffer(context_);
-    vertexBuffer_->SetShadowed(true);
-    vertexBuffer_->SetSize(vertices_.Size(), elements);
-    vertexBuffer_->SetData(vertices_.Buffer());
+    // создание вершинного буфера
+    CommitVertexData();
 
     // Создание и настройка IndexBuffer
     indexBuffer_ = new IndexBuffer(context_);
@@ -146,22 +142,71 @@ void MorphGeometry::Commit()
 
 }
 
+void MorphGeometry::CommitVertexData() {
+    Vector<VertexElement> elements;
+    morphCount_ = morpherOrder_.Size();
+    activeMorphs_ = morpherOrder_;
+    elements.Push(VertexElement(TYPE_VECTOR3, SEM_POSITION, 0));
+    elements.Push(VertexElement(TYPE_VECTOR3, SEM_NORMAL));
+    elements.Push(VertexElement(TYPE_VECTOR2, SEM_TEXCOORD));
+    elements.Push(VertexElement(TYPE_VECTOR4, SEM_TANGENT));
+    // Задание размера элементов
+    for (i32 i = 0; i < TOTAL_MORPH_COUNT; i++) {
+        elements.Push(VertexElement(TYPE_VECTOR3, SEM_TEXCOORD, FIRST_MORPH_NUMBER + i));
+    }
+    i32 vertexSize = sizeof(MorphVertex) + sizeof(Vector3) * TOTAL_MORPH_COUNT;
+    vertexData_.Resize(vertexSize * vertices_.Size());
+
+    // Инициаизация базовых значений вершин
+    float* buffer = vertexData_.Buffer();
+    MorphVertex* verticesBase = vertices_.Buffer();
+    for (i32 i = 0; i < vertices_.Size(); ++i) {
+        void* dst = GetMorphVertexPtr(buffer, i);
+        MorphVertex* src = verticesBase + i;
+        memcpy(dst, src, sizeof(MorphVertex));
+        for (i32 j = 0; j < TOTAL_MORPH_COUNT; ++j) {
+            *reinterpret_cast<Vector3*>(GetMorphDeltaPtr(buffer, i, j)) = Vector3::ZERO;
+        }
+    }
+
+    // Запись весов для морфинга
+    for (int i = 0; i < morphCount_; ++i) {
+        auto morphName = activeMorphs_[i];
+        Morpher morpher = morphDeltasMap_[morphName];
+        for (i32 j = 0; j < morpher.indexes.Size(); ++j) {
+            auto index = morpher.indexes[j];
+            if (index < vertices_.Size()) {
+                *reinterpret_cast<Vector3*>(GetMorphDeltaPtr(buffer, index, i)) = morpher.morphDeltas[j];
+            }
+        }
+    }
+    vertexBuffer_ = new VertexBuffer(context_);
+    vertexBuffer_->SetShadowed(true);
+    vertexBuffer_->SetSize(vertices_.Size(), elements);
+    vertexBuffer_->SetData(buffer);
+}
+
 void MorphGeometry::UpdateBatches(const FrameInfo& frame)
 {
     Drawable::UpdateBatches(frame);
     Log* log = context_->GetSubsystem<Log>();
-    // log->Write(LOG_DEBUG, String("MorphWeight=") + String(morphWeight_) + String(" ") + String(morphWeight__) + String(" For ") + String((unsigned long long) this) + String(" ") + GetNode()->GetName() + String(" Morpher: ") + GetActiveMorpher()) ;
-    GetMaterial()->SetShaderParameter("MorphWeight", morphWeight_);
+    for (i32 i = 0; i < TOTAL_MORPH_COUNT; i++) {
+        GetMaterial()->SetShaderParameter("MorphWeights" + String(i), morphWeights_[i]);
+        Vector3 center;
+        if (i < morpherOrder_.Size()) {
+            center = morphDeltasMap_[morpherOrder_[i]].center;
+        } else {
+            center = Vector3::ZERO;
+        }
+        GetMaterial()->SetShaderParameter("MorphCenter" + String(i), center);
+        log->Write(LOG_INFO, String("Load morp center of ") + String(i) + " " + String(center));
+    }
+    GetMaterial()->SetShaderParameter("MorphCount", morphCount_);
 }
 
 void MorphGeometry::UpdateGeometry(const FrameInfo& frame)
 {
     time_ += frame.timeStep_;
-    if (morphWeight__ != -1.0f) {
-        morphWeight_ = morphWeight__;
-    } else {
-        morphWeight_ = (1 + sin(time_)) / 2;
-    }
 }
 
 void MorphGeometry::OnWorldBoundingBoxUpdate()

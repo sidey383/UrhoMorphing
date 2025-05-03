@@ -6,12 +6,7 @@
 #include "Fog.hlsl"
 
 #ifdef MORPH_ENABLED
-Texture1D tMorphWeigthMap : register(t6);
-// Texture2D tMorphTextureMap : register(t7);
 
-SamplerState sMorphWeigthMap : register(s6);
-// SamplerState sMorphTextureMap : register(s7);
-float cMorphWeight;
 float3 Slerp(float3 a, float3 b, float t)
 {
     float cosTheta = dot(normalize(a), normalize(b));
@@ -35,6 +30,30 @@ float3 SlerpMoved(float3 move, float3 a, float3 b, float t)
 {
     return Slerp(a - move, b - move, t) + move;
 }
+float cMorphWeights0;
+float cMorphWeights1;
+float cMorphWeights2;
+float cMorphWeights3;
+float cMorphWeights4;
+float cMorphWeights5;
+float cMorphWeights6;
+float cMorphWeights7;
+float cMorphWeights8;
+float cMorphWeights9;
+float cMorphWeights10;
+float3 cMorphCenter0;
+float3 cMorphCenter1;
+float3 cMorphCenter2;
+float3 cMorphCenter3;
+float3 cMorphCenter4;
+float3 cMorphCenter5;
+float3 cMorphCenter6;
+float3 cMorphCenter7;
+float3 cMorphCenter8;
+float3 cMorphCenter9;
+float3 cMorphCenter10;
+int cMorphCount;
+
 #endif
 
 void VS(float4 iPos : POSITION,
@@ -98,7 +117,17 @@ void VS(float4 iPos : POSITION,
         out float oClip : SV_CLIPDISTANCE0,
     #endif
     #ifdef MORPH_ENABLED
-        float3 aMorphDelta : TEXCOORD1,
+        float3 morphPos0 : TEXCOORD2,
+        float3 morphPos1 : TEXCOORD3,
+        float3 morphPos2 : TEXCOORD4,
+        float3 morphPos3 : TEXCOORD5,
+        float3 morphPos4 : TEXCOORD6,
+        float3 morphPos5 : TEXCOORD7,
+        float3 morphPos6 : TEXCOORD8,
+        float3 morphPos7 : TEXCOORD9,
+        float3 morphPos8 : TEXCOORD10,
+        float3 morphPos9 : TEXCOORD11,
+        float3 morphPos10 : TEXCOORD12,
     #endif
     out float4 oPos : OUTPOSITION)
 {
@@ -109,7 +138,25 @@ void VS(float4 iPos : POSITION,
     float3 modelPos = iPos.xyz;
 
     #ifdef MORPH_ENABLED
-        modelPos = SlerpMoved(float3(0.0, 98.0, -31.0), modelPos , modelPos + aMorphDelta, cMorphWeight);
+        float3 morphDelta[11] = {
+            morphPos0, morphPos1, morphPos2, morphPos3,
+            morphPos4, morphPos5, morphPos6, morphPos7,
+            morphPos8, morphPos9, morphPos10
+        };
+        float3 morphCenters[11] = {
+            cMorphCenter0, cMorphCenter1, cMorphCenter2, cMorphCenter3,
+            cMorphCenter4, cMorphCenter5, cMorphCenter6, cMorphCenter7,
+            cMorphCenter8, cMorphCenter9, cMorphCenter10
+        };
+        float morphWeigths[11] = {
+            cMorphWeights0, cMorphWeights1, cMorphWeights2, cMorphWeights3,
+            cMorphWeights4, cMorphWeights5, cMorphWeights6, cMorphWeights7,
+            cMorphWeights8, cMorphWeights9, cMorphWeights10
+        };
+        for (int i = 0; i < 11; i++) {
+            float3 target = modelPos + morphDelta[i];
+            modelPos = SlerpMoved(morphCenters[i], modelPos, target, morphWeigths[i]);
+        }
     #endif
     float4x3 modelMatrix = iModelMatrix;
     float3 worldPos = mul(modelMatrix, modelPos);

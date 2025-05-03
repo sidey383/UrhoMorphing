@@ -312,32 +312,30 @@ void FBXViewerApp::CreateUI(MorphGeometry* geometry) {
     layout->SetPosition(10, 10); // Где контейнер будет на экране
     layout->SetLayoutSpacing(10); // Отступы между элементами
 
-    // Создание DropDownList
-    DropDownList* morphList = layout->CreateChild<DropDownList>();
-    morphList->SetStyleAuto();
-    morphList->SetMinSize(100, 20);
-    morphList->SetVar("node", geometry->GetNode());
-    SubscribeToEvent(morphList, E_ITEMSELECTED, URHO3D_HANDLER(FBXViewerApp, HandleDropDownListChanged));
-
     // Заполнение списка морф-таргетов
     for (const auto& morph : geometry->GetMorpherNames())
     {
-        log->Write(LOG_INFO, String("Load morph select ") + morph);
-        SharedPtr<Text> item(new Text(context_));
-        item->SetText(morph);
-        item->SetFont(cache->GetResource<Font>("Fonts/Anonymous Pro.ttf"), 10);
-        item->SetHorizontalAlignment(HA_CENTER);
-        item->SetVerticalAlignment(VA_CENTER);
-        morphList->AddItem(item);
+        log->Write(LOG_INFO, String("Load morph sider ") + morph);
+        // Создание Slider
+        UIElement* row = layout->CreateChild<UIElement>();
+        row->SetLayout(LM_VERTICAL);
+        row->SetLayoutSpacing(2);
+        row->SetStyleAuto();
+
+        Text* label = row->CreateChild<Text>();
+        label->SetStyleAuto();
+        label->SetText(morph);
+
+        Slider* morphSlider = row->CreateChild<Slider>();
+        morphSlider->SetStyleAuto();
+        morphSlider->SetMinSize(200, 20);
+        morphSlider->SetRange(1.0f); // Диапазон от 0.0 до 1.0
+        morphSlider->SetVar("node", geometry->GetNode());
+        morphSlider->SetVar("name", morph);
+
+        SubscribeToEvent(morphSlider, E_SLIDERCHANGED, URHO3D_HANDLER(FBXViewerApp, HandleSliderChanged));
     }
 
-    // Создание Slider
-    Slider* morphSlider = layout->CreateChild<Slider>();
-    morphSlider->SetStyleAuto();
-    morphSlider->SetMinSize(200, 20);
-    morphSlider->SetRange(1.0f); // Диапазон от 0.0 до 1.0
-    morphSlider->SetVar("node", geometry->GetNode());
-    SubscribeToEvent(morphSlider, E_SLIDERCHANGED, URHO3D_HANDLER(FBXViewerApp, HandleSliderChanged));
     log->Write(LOG_INFO, String("Load morph slider"));
 
 }
@@ -373,49 +371,16 @@ void FBXViewerApp::HandleSliderChanged(StringHash eventType, VariantMap& eventDa
     URHO3D_LOGINFO("Slider changed to value: " + String(value));
 
     Node* node = static_cast<Node*>(slider->GetVar("node").GetPtr());
+    String name = slider->GetVar("name").GetString();
     if (node)
     {
         MorphGeometry* geometry = node->GetComponent<MorphGeometry>();
         if (geometry)
         {
-            GetSubsystem<Log>()->Write(LOG_DEBUG, String("Set value for morph weight ") + String(value) + String(" With active morph") + geometry->GetActiveMorpher() + String(" For ") + String((unsigned long long) geometry) + String(" ") + geometry->GetNode()->GetName());
-            geometry->SetMorphWeight(value);
+            geometry->SetMorphWeight(name, value);
         }
     } else {
         GetSubsystem<Log>()->Write(LOG_DEBUG, "Can't found MorphGeometry for slider");
-    }
-}
-
-void FBXViewerApp::HandleDropDownListChanged(StringHash eventType, VariantMap& eventData)
-{
-    auto* log = GetSubsystem<Log>();
-    using namespace ItemSelected;
-    auto* list = static_cast<DropDownList*>(eventData[P_ELEMENT].GetPtr());
-
-    int selected = eventData[P_SELECTION].GetI32();
-    URHO3D_LOGINFO("Dropdown selected item index: " + String(selected));
-
-    // Можно получить выбранный текст
-    if (list->GetNumItems() > selected)
-    {
-        auto* selectedItem = static_cast<Text*>(list->GetItem(selected));
-        if (selectedItem)
-        {
-            Node* node = static_cast<Node*>(list->GetVar("node").GetPtr());
-            if (node)
-            {
-                MorphGeometry* geometry = node->GetComponent<MorphGeometry>();
-                if (geometry)
-                {
-                    GetSubsystem<Log>()->Write(LOG_DEBUG, String("Set value for morph target ") + selectedItem->GetText() + String(" With active morph ") + geometry->GetActiveMorpher() + String(" For ") + String((unsigned long long) geometry) + String(" ") + geometry->GetNode()->GetName());
-                    geometry->SetActiveMorpher(selectedItem->GetText());
-                    geometry->Commit();
-                }
-            } else {
-                log->Write(LOG_INFO, "Can't found MorphGeometry for select " + selectedItem->GetText());
-            }
-            
-        }
     }
 }
 
