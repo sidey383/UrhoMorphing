@@ -7,29 +7,8 @@
 
 #ifdef MORPH_ENABLED
 
-float3 Slerp(float3 a, float3 b, float t)
-{
-    float cosTheta = dot(normalize(a), normalize(b));
-    cosTheta = clamp(cosTheta, -1.0, 1.0); // Предотвращение ошибок из-за числовых погрешностей
-    float theta = acos(cosTheta);
-    float sinTheta = sin(theta);
+#include "MorphInterpolations.hlsl"
 
-    // Если угол очень мал, используем линейную интерполяцию
-    if (sinTheta < 0.001)
-    {
-        return lerp(a, b, t);
-    }
-
-    float weightA = sin((1.0 - t) * theta) / sinTheta;
-    float weightB = sin(t * theta) / sinTheta;
-
-    return weightA * a + weightB * b;
-}
-
-float3 SlerpMoved(float3 move, float3 a, float3 b, float t)
-{
-    return Slerp(a - move, b - move, t) + move;
-}
 float cMorphWeights0;
 float cMorphWeights1;
 float cMorphWeights2;
@@ -52,9 +31,21 @@ float3 cMorphCenter7;
 float3 cMorphCenter8;
 float3 cMorphCenter9;
 float3 cMorphCenter10;
+float3 cMorphAxis0;
+float3 cMorphAxis1;
+float3 cMorphAxis2;
+float3 cMorphAxis3;
+float3 cMorphAxis4;
+float3 cMorphAxis5;
+float3 cMorphAxis6;
+float3 cMorphAxis7;
+float3 cMorphAxis8;
+float3 cMorphAxis9;
+float3 cMorphAxis10;
 int cMorphCount;
 
 #endif
+
 
 void VS(float4 iPos : POSITION,
     #if !defined(BILLBOARD) && !defined(TRAILFACECAM)
@@ -153,9 +144,21 @@ void VS(float4 iPos : POSITION,
             cMorphWeights4, cMorphWeights5, cMorphWeights6, cMorphWeights7,
             cMorphWeights8, cMorphWeights9, cMorphWeights10
         };
+        float3 morphAxises[11] = {
+            cMorphAxis0, cMorphAxis1, cMorphAxis2, cMorphAxis3,
+            cMorphAxis4, cMorphAxis5, cMorphAxis6, cMorphAxis7,
+            cMorphAxis8, cMorphAxis9, cMorphAxis10
+        };
         for (int i = 0; i < 11; i++) {
             float3 target = modelPos + morphDelta[i];
-            modelPos = SlerpMoved(morphCenters[i], modelPos, target, morphWeigths[i]);
+            float axisLen = length(morphAxises[i]);
+            if (axisLen > 100.0f) {
+                modelPos = lerp(modelPos, target, morphWeigths[i]);
+            } else if (axisLen < 0.1f) {
+                modelPos = slerpMoved(morphCenters[i], modelPos, target, morphWeigths[i]);
+            } else {
+                modelPos = cylerpMoved(morphCenters[i], morphAxises[i], modelPos, target, morphWeigths[i]);
+            }
         }
     #endif
     float4x3 modelMatrix = iModelMatrix;

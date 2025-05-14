@@ -138,6 +138,7 @@ void MorphGeometry::Commit()
     boundingBox_.Clear();
     for (const auto& vertex : vertices_)
         boundingBox_.Merge(vertex.position_);
+    MarkForUpdate();
     log->Write(LOG_INFO,"Bounding box local: min=" + boundingBox_.min_.ToString() + ", max=" + boundingBox_.max_.ToString());
 
 }
@@ -150,7 +151,7 @@ void MorphGeometry::CommitVertexData() {
     elements.Push(VertexElement(TYPE_VECTOR3, SEM_NORMAL));
     elements.Push(VertexElement(TYPE_VECTOR2, SEM_TEXCOORD));
     elements.Push(VertexElement(TYPE_VECTOR4, SEM_TANGENT));
-    // Задание размера элементов
+    // Добавление морфируемых вершин
     for (i32 i = 0; i < TOTAL_MORPH_COUNT; i++) {
         elements.Push(VertexElement(TYPE_VECTOR3, SEM_TEXCOORD, FIRST_MORPH_NUMBER + i));
     }
@@ -193,13 +194,17 @@ void MorphGeometry::UpdateBatches(const FrameInfo& frame)
     for (i32 i = 0; i < TOTAL_MORPH_COUNT; i++) {
         GetMaterial()->SetShaderParameter("MorphWeights" + String(i), morphWeights_[i]);
         Vector3 center;
+        Vector3 axis;
         if (i < morpherOrder_.Size()) {
-            center = morphDeltasMap_[morpherOrder_[i]].center;
+            Morpher& m = morphDeltasMap_[morpherOrder_[i]];
+            center = m.center;
+            axis = m.axis;
         } else {
             center = Vector3::ZERO;
+            axis = Vector3::ZERO;
         }
+        GetMaterial()->SetShaderParameter("MorphAxis" + String(i), axis);
         GetMaterial()->SetShaderParameter("MorphCenter" + String(i), center);
-        log->Write(LOG_INFO, String("Load morp center of ") + String(i) + " " + String(center));
     }
     GetMaterial()->SetShaderParameter("MorphCount", morphCount_);
 }
@@ -211,7 +216,10 @@ void MorphGeometry::UpdateGeometry(const FrameInfo& frame)
 
 void MorphGeometry::OnWorldBoundingBoxUpdate()
 {
+    Log* log = context_->GetSubsystem<Log>();
     worldBoundingBox_ = boundingBox_.Transformed(node_->GetWorldTransform());
+    log->Write(LOG_INFO,"Update bounding box local: min=" + boundingBox_.min_.ToString() + ", max=" + boundingBox_.max_.ToString());
+    log->Write(LOG_INFO,"Update bounding box world: min=" + worldBoundingBox_.min_.ToString() + ", max=" + worldBoundingBox_.max_.ToString());
 }
 
 }

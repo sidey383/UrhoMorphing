@@ -38,12 +38,14 @@ public:
     explicit FBXViewerApp(Urho3D::Context* context);
     void Setup() override;
     void Start() override;
+    void TakeScreenshot();
 
 private:
     void MoveCamera(float timeStep);
     void HandleUpdate(Urho3D::StringHash eventType, Urho3D::VariantMap& eventData);
     void HandleKeyDown(Urho3D::StringHash eventType, Urho3D::VariantMap& eventData);
     void HandleSliderChanged(Urho3D::StringHash eventType, Urho3D::VariantMap& eventData);
+    void HandleLineEditChanged(Urho3D::StringHash eventType, Urho3D::VariantMap& eventData);
     void HandleApplyCameraPosition(Urho3D::StringHash eventType, Urho3D::VariantMap& eventData);
     void SetupLighting();
     void CreateScene();

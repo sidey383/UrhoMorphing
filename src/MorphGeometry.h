@@ -29,6 +29,7 @@ struct Morpher
     Vector<i32> indexes;
     Vector<Vector3> morphDeltas;
     Vector3 center;
+    Vector3 axis;
 };
 
 class MorphGeometry : public Drawable
@@ -48,6 +49,7 @@ public:
     Morpher& getMorper(String name);
     Vector<String> GetMorpherNames();
     String GetActiveMorpher();
+    const BoundingBox& GetWorldBoundingBox() const { return worldBoundingBox_; }
 
     void Commit();
 

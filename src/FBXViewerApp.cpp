@@ -23,6 +23,7 @@
 #include <Urho3D/Graphics/Graphics.h>
 #include <Urho3D/Graphics/CustomGeometry.h>
 #include <Urho3D/Graphics/StaticModel.h>
+#include <Urho3D/Graphics/DebugRenderer.h>
 #include <Urho3D/Graphics/Model.h>
 #include <Urho3D/Graphics/Camera.h>
 #include <Urho3D/Graphics/Light.h>
@@ -34,7 +35,7 @@
 #include <Urho3D/Resource/ResourceCache.h>
 #include <Urho3D/Graphics/Renderer.h>
 #include <Urho3D/Graphics/RenderPath.h>
-#include <Urho3D/IO/Log.h>  
+#include <Urho3D/IO/Log.h>
 
 using namespace Urho3D;
 
@@ -46,7 +47,7 @@ void FBXViewerApp::Setup() {
     engineParameters_["WindowWidth"] = 1280;
     engineParameters_["WindowHeight"] = 720;
     engineParameters_["LogName"] = "run.log";
-    engineParameters_["LogLe.vel"] = LOG_DEBUG;
+    engineParameters_["LogLevel"] = LOG_DEBUG;
     engineParameters_["WindowResizable"] = true;
     RegisterAllComponents();
     context_->GetSubsystem<ResourceCache>()->AddResourceDir("Resources/CustomData");
@@ -63,6 +64,7 @@ void FBXViewerApp::Start()
     ui->GetRoot()->SetDefaultStyle(style);
     for (auto* mg : findAllComponents<MorphGeometry>(scene_)) {
         CreateUI(mg);
+        GetSubsystem<Log>()->Write(LOG_INFO, "Add fbx importet nodes");
     }
 
     CreateCameraUI();
@@ -220,6 +222,10 @@ void FBXViewerApp::HandleKeyDown(StringHash, VariantMap& eventData) {
         auto* graphics = GetSubsystem<Graphics>();
         graphics->ToggleFullscreen();
     }
+    if (eventData[P_KEY].GetI32() == KEY_F2) 
+    {
+        TakeScreenshot();
+    }
 }
 
 void FBXViewerApp::CreateScene()
@@ -228,10 +234,10 @@ void FBXViewerApp::CreateScene()
     scene_ = SharedPtr<Scene>(new Scene(context_));
     scene_->CreateComponent<Octree>();
 
-    SharedPtr<Node> fbxNode = LoadFBXToNode(context_, "CustomData/repo.fbx");
+    SharedPtr<Node> fbxNode = LoadFBXToNode(context_, "CustomData/repo_reorder.fbx");
     if (fbxNode) {
         scene_->CreateChild("ImportedFBX")->AddChild(fbxNode);
-        GetSubsystem<Log>()->Write(LOG_INFO, "Add fbx importet nodes");    
+        GetSubsystem<Log>()->Write(LOG_INFO, "Add fbx importet nodes");
     } else {
         GetSubsystem<Log>()->Write(LOG_ERROR, "Can't load model");    
     }
@@ -315,26 +321,44 @@ void FBXViewerApp::CreateUI(MorphGeometry* geometry) {
     // Заполнение списка морф-таргетов
     for (const auto& morph : geometry->GetMorpherNames())
     {
-        log->Write(LOG_INFO, String("Load morph sider ") + morph);
-        // Создание Slider
+        log->Write(LOG_INFO, String("Load morph slider ") + morph);
+    
         UIElement* row = layout->CreateChild<UIElement>();
         row->SetLayout(LM_VERTICAL);
         row->SetLayoutSpacing(2);
         row->SetStyleAuto();
-
+    
         Text* label = row->CreateChild<Text>();
         label->SetStyleAuto();
         label->SetText(morph);
-
-        Slider* morphSlider = row->CreateChild<Slider>();
+    
+        // Горизонтальная подстрока: слайдер + поле ввода
+        UIElement* controlRow = row->CreateChild<UIElement>();
+        controlRow->SetLayout(LM_HORIZONTAL);
+        controlRow->SetLayoutSpacing(4);
+        controlRow->SetStyleAuto();
+    
+        Slider* morphSlider = controlRow->CreateChild<Slider>();
         morphSlider->SetStyleAuto();
-        morphSlider->SetMinSize(200, 20);
-        morphSlider->SetRange(1.0f); // Диапазон от 0.0 до 1.0
+        morphSlider->SetMinSize(150, 20);
+        morphSlider->SetRange(1.0f);
         morphSlider->SetVar("node", geometry->GetNode());
         morphSlider->SetVar("name", morph);
-
+    
+        LineEdit* valueInput = controlRow->CreateChild<LineEdit>();
+        valueInput->SetStyleAuto();
+        valueInput->SetFixedWidth(40);
+        valueInput->SetText("0.0");
+        valueInput->SetVar("slider", morphSlider);
+    
+        // Сохраняем ссылку на поле в слайдер, чтобы можно было обновить при перемещении
+        morphSlider->SetVar("lineedit", valueInput);
+    
+        // Подписки
         SubscribeToEvent(morphSlider, E_SLIDERCHANGED, URHO3D_HANDLER(FBXViewerApp, HandleSliderChanged));
+        SubscribeToEvent(valueInput, E_TEXTFINISHED, URHO3D_HANDLER(FBXViewerApp, HandleLineEditChanged));
     }
+    
 
     log->Write(LOG_INFO, String("Load morph slider"));
 
@@ -368,7 +392,10 @@ void FBXViewerApp::HandleSliderChanged(StringHash eventType, VariantMap& eventDa
 
     GetSubsystem<Log>()->Write(LOG_DEBUG, "Update slider");
     float value = slider->GetValue();
-    URHO3D_LOGINFO("Slider changed to value: " + String(value));
+
+    LineEdit* lineEdit = static_cast<LineEdit*>(slider->GetVar("lineedit").GetPtr());
+    if (lineEdit)
+        lineEdit->SetText(ToStringWithPrecision(value, 2));
 
     Node* node = static_cast<Node*>(slider->GetVar("node").GetPtr());
     String name = slider->GetVar("name").GetString();
@@ -383,6 +410,23 @@ void FBXViewerApp::HandleSliderChanged(StringHash eventType, VariantMap& eventDa
         GetSubsystem<Log>()->Write(LOG_DEBUG, "Can't found MorphGeometry for slider");
     }
 }
+
+void FBXViewerApp::HandleLineEditChanged(StringHash eventType, VariantMap& eventData)
+{
+    using namespace TextFinished;
+    auto* lineEdit = static_cast<LineEdit*>(eventData[P_ELEMENT].GetPtr());
+    String text = lineEdit->GetText().Trimmed();
+
+    float value = ToFloat(text);
+    value = Clamp(value, 0.0f, 1.0f);  // Ограничиваем
+
+    auto* slider = static_cast<Slider*>(lineEdit->GetVar("slider").GetPtr());
+    if (slider)
+    {
+        slider->SetValue(value);  // Это вызовет HandleSliderChanged
+    }
+}
+
 
 void FBXViewerApp::SetupLighting()
 {
@@ -401,11 +445,32 @@ void FBXViewerApp::SetupLighting()
     SharedPtr<Zone> zone(scene_->CreateComponent<Zone>());
     zone->SetBoundingBox(BoundingBox(-1000.0f, 1000.0f));
     zone->SetAmbientColor(Color(0.5f, 0.5f, 0.5f));
-    zone->SetFogColor(Color(0.05f, 0.05f, 0.05f));
+    zone->SetFogColor(Color(1.0f, 1.0f, 1.0f));
     zone->SetFogStart(1000.0f);
     zone->SetFogEnd(3000.0f);
 
 }
+
+void FBXViewerApp::TakeScreenshot()
+{
+    auto* log = GetSubsystem<Log>();
+    auto* graphics = GetSubsystem<Graphics>();
+    auto* image = new Image(context_);
+
+    if (graphics->TakeScreenShot(*image))
+    {
+        String path = GetSubsystem<FileSystem>()->GetCurrentDir() + "screenshot_" + Time::GetTimeStamp().Replaced(':', '_') + ".png";
+        if (image->SavePNG(path))
+            log->Write(LOG_INFO, "Screenshot saved to " + path);
+        else
+            log->Write(LOG_INFO, "Failed to save screenshot");
+    }
+    else
+    {
+        log->Write(LOG_INFO, "Failed to take screenshot");
+    }
+}
+
 
 void FBXViewerApp::RegisterAllComponents()
 {
